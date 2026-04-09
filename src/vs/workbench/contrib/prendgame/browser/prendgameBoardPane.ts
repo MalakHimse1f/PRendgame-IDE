@@ -4,176 +4,21 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { $, append, getWindow } from '../../../../base/browser/dom.js';
-import { IViewPaneOptions, ViewPane } from '../../../browser/parts/views/viewPane.js';
-import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
-import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
-import { IViewDescriptorService } from '../../../common/views.js';
-import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
-import { IOpenerService } from '../../../../platform/opener/common/opener.js';
-import { IThemeService } from '../../../../platform/theme/common/themeService.js';
-import { IHoverService } from '../../../../platform/hover/browser/hover.js';
-import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { T } from './prendgameTheme.js';
+import { getGroups, getMembers, findTask, findTaskGroup, getDueDateStyle, PRIORITY_COLORS, TASK_STATUS_COLORS as STATUS_COLORS, ITask, ISubtask } from './prendgameData.js';
 
-// -- Theme --------------------------------------------------------------------
-
-const T = {
-	// PRendgame brand palette (Linear-inspired dark premium)
-	accent: '#6366f1',
-	accentMuted: '#6366f120',
-	accentSubtle: '#6366f10d',
-	surface: '#141416',
-	surfaceHover: '#1c1c20',
-	border: '#1e1e22',
-	borderSubtle: '#16161a',
-	text: '#e4e4e7',
-	textMuted: '#71717a',
-	textFaint: '#52525b',
-	radius: '6px',
-	radiusSm: '4px',
-	radiusPill: '10px',
-};
-
-const PRIORITY_COLORS: Record<string, string> = {
-	critical: '#ef4444', high: '#f97316', medium: '#eab308', low: '#52525b',
-};
-const STATUS_COLORS: Record<string, string> = {
-	in_progress: '#6366f1', todo: '#71717a', in_review: '#a855f7', backlog: '#3f3f46', done: '#22c55e',
-};
-
-// -- Data ---------------------------------------------------------------------
-
-interface ISubtask { title: string; done: boolean; assignee?: string }
-interface ITask { id: string; title: string; priority: string; initials: string; color: string; labels: string[]; description: string; dueDate: string; subtasks: ISubtask[] }
-interface IGroup { id: string; name: string; tasks: ITask[]; collapsed: boolean }
-
-function getDueDateStyle(d: string): { color: string; label: string } {
-	if (!d) { return { color: '#52525b', label: '' }; }
-	const today = new Date('2026-04-09');
-	const due = new Date(d);
-	const diff = Math.floor((due.getTime() - today.getTime()) / 86400000);
-	if (diff < 0) { return { color: '#ef4444', label: d + ' (overdue)' }; }
-	if (diff === 0) { return { color: '#f59e0b', label: d + ' (today)' }; }
-	if (diff <= 3) { return { color: '#f59e0b', label: d }; }
-	return { color: '#52525b', label: d };
-}
-
-function getGroups(): IGroup[] {
-	const t = (id: string, title: string, priority: string, initials: string, color: string, labels: string[], description?: string, dueDate?: string, subtasks?: ISubtask[]): ITask => ({ id, title, priority, initials, color, labels, description: description || '', dueDate: dueDate || '', subtasks: subtasks || [] });
-	return [
-		{
-			id: 'in_progress', name: 'In Progress', collapsed: false, tasks: [
-				t('PRE-3', 'Build kanban board webview', 'critical', 'ML', '#10b981', ['frontend', 'core'], 'Implement the main kanban board as a VS Code webview panel.\n\n- 5 default columns (configurable)\n- Drag-and-drop between columns\n- Task card rendering with title, assignee avatar, priority badge\n- Filter bar (assignee, priority, label)', '2026-04-08', [
-					{ title: 'Render column headers with task counts', done: true },
-					{ title: 'Implement drag-and-drop between columns', done: true },
-					{ title: 'Build task card component', done: false, assignee: 'ML' },
-					{ title: 'Add filter bar with dropdowns', done: false, assignee: 'ML' },
-				]),
-				t('PRE-4', 'Implement task detail view', 'high', 'SR', '#f59e0b', ['frontend'], 'When a user clicks a task card, show a detail view with all fields inline-editable.\n\n- Title, status, priority, assignee\n- Description with markdown rendering\n- Comments thread\n- Linked documents and code snippets', '2026-04-11', [
-					{ title: 'Metadata grid with inline editing', done: true },
-					{ title: 'Description with click-to-edit', done: true },
-					{ title: 'Comments section', done: true },
-					{ title: 'Linked code snippets', done: false, assignee: 'SR' },
-					{ title: 'Activity log', done: false },
-				]),
-				t('PRE-5', 'Create sidebar tree views', 'high', 'RB', '#ef4444', ['frontend'], 'Register tree view providers in the PRendgame activity bar.\n\n- My Tasks grouped by status\n- Documents grouped by type\n- Sprints with task counts', '2026-04-09'),
-			]
-		},
-		{
-			id: 'todo', name: 'To Do', collapsed: false, tasks: [
-				t('PRE-6', 'Build document editor with PRD template', 'high', 'ML', '#10b981', ['docs'], '', '2026-04-14', [
-					{ title: 'Markdown rendering in sidebar', done: true },
-					{ title: 'Inline block editing', done: false, assignee: 'ML' },
-					{ title: 'Template picker for new docs', done: false },
-				]),
-				t('PRE-7', 'Implement list view for tasks', 'medium', 'SR', '#f59e0b', ['frontend'], '', '2026-04-16'),
-				t('PRE-8', 'Implement timeline view', 'medium', 'ML', '#10b981', ['frontend'], '', '2026-04-18'),
-				t('PRE-15', 'Sprint dashboard view', 'medium', 'ML', '#10b981', ['dashboard'], '', '2026-04-18'),
-				t('PRE-16', 'QA pass on kanban interactions', 'high', 'AQ', '#ec4899', ['qa'], '', '2026-04-11'),
-			]
-		},
-		{ id: 'in_review', name: 'In Review', collapsed: false, tasks: [] },
-		{
-			id: 'backlog', name: 'Backlog', collapsed: true, tasks: [
-				t('PRE-9', 'Expose MCP server tools', 'high', 'JP', '#06b6d4', ['mcp']),
-				t('PRE-10', 'Build MCP activity log', 'medium', 'RB', '#ef4444', ['mcp']),
-				t('PRE-11', 'Mock cloud sync indicator', 'low', 'SR', '#f59e0b', ['frontend']),
-				t('PRE-12', 'Mock team presence avatars', 'low', 'RB', '#ef4444', ['frontend']),
-				t('PRE-13', 'Write PRD for notifications', 'low', 'AC', '#6366f1', ['prd']),
-				t('PRE-14', 'Mock paywall modal', 'low', 'SR', '#f59e0b', ['frontend']),
-			]
-		},
-		{
-			id: 'done', name: 'Done', collapsed: true, tasks: [
-				t('PRE-1', 'Design auth flow for Supabase', 'critical', 'JP', '#06b6d4', ['auth']),
-				t('PRE-2', 'Set up Supabase project and schema', 'critical', 'JP', '#06b6d4', ['backend']),
-			]
-		},
-	];
-}
-
-// -- Pane ---------------------------------------------------------------------
-
-export class PRendgameBoardPane extends ViewPane {
-
-	constructor(
-		options: IViewPaneOptions,
-		@IKeybindingService keybindingService: IKeybindingService,
-		@IContextMenuService contextMenuService: IContextMenuService,
-		@IConfigurationService configurationService: IConfigurationService,
-		@IContextKeyService contextKeyService: IContextKeyService,
-		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
-		@IInstantiationService instantiationService: IInstantiationService,
-		@IOpenerService openerService: IOpenerService,
-		@IThemeService themeService: IThemeService,
-		@IHoverService hoverService: IHoverService,
-		@ICommandService private readonly commandService: ICommandService,
-	) {
-		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, hoverService);
-	}
-
-	protected override renderBody(container: HTMLElement): void {
-		super.renderBody(container);
-		const root = append(container, $('div'));
-		root.style.cssText = `overflow-y:auto;height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;-webkit-font-smoothing:antialiased;`;
-		renderBoardContent(root, this.commandService);
-	}
-}
+// -- Render -------------------------------------------------------------------
 
 export function renderBoardContent(root: HTMLElement, commandService: { executeCommand(id: string, ...args: unknown[]): unknown }): void {
 
 	const groups = getGroups();
-	const members = [
-		{ id: 'user-001', name: 'Alex Chen', initials: 'AC', color: '#6366f1', role: 'PM' },
-		{ id: 'user-002', name: 'Taylor Reeves', initials: 'TR', color: '#8b5cf6', role: 'EM' },
-		{ id: 'user-003', name: 'Jordan Park', initials: 'JP', color: '#06b6d4', role: 'Senior Eng' },
-		{ id: 'user-004', name: 'Morgan Liu', initials: 'ML', color: '#10b981', role: 'Senior Eng' },
-		{ id: 'user-005', name: 'Sam Rivera', initials: 'SR', color: '#f59e0b', role: 'Junior Eng' },
-		{ id: 'user-006', name: 'Riley Brooks', initials: 'RB', color: '#ef4444', role: 'Junior Eng' },
-		{ id: 'user-007', name: 'Avery Quinn', initials: 'AQ', color: '#ec4899', role: 'QA' },
-	];
+	const members = getMembers();
 
 	// Drill-in containers
 	const boardContainer = append(root, $('div'));
 	const detailContainer = append(root, $('div'));
 	detailContainer.style.display = 'none';
 	let activeTaskId: string | null = null;
-
-	function findTask(taskId: string): ITask | undefined {
-		for (const g of groups) {
-			const t = g.tasks.find(tt => tt.id === taskId);
-			if (t) { return t; }
-		}
-		return undefined;
-	}
-
-	function findTaskGroup(taskId: string): string {
-		for (const g of groups) {
-			if (g.tasks.some(tt => tt.id === taskId)) { return g.id; }
-		}
-		return '';
-	}
 
 	function showBoard() {
 		activeTaskId = null;
@@ -373,10 +218,10 @@ export function renderBoardContent(root: HTMLElement, commandService: { executeC
 		// Labels
 		const labelsLbl = append(metaGrid, $('span'));
 		labelsLbl.style.cssText = `font-size:11px;color:${T.textFaint};`;
-		labelsLbl.textContent = 'Labels';
+		labelsLbl.textContent = 'Tags';
 		const labelsEl = append(metaGrid, $('div'));
 		labelsEl.style.cssText = 'display:flex;gap:4px;flex-wrap:wrap;';
-		for (const l of task.labels) {
+		for (const l of task.tags) {
 			const lbl = append(labelsEl, $('span'));
 			lbl.style.cssText = `font-size:10px;padding:2px 8px;border-radius:${T.radiusPill};background:${T.border};color:${T.textMuted};`;
 			lbl.textContent = l;
@@ -865,7 +710,7 @@ export function renderBoardContent(root: HTMLElement, commandService: { executeC
 			const match = !q
 				|| tt.id.toLowerCase().includes(q)
 				|| tt.title.toLowerCase().includes(q)
-				|| tt.labels.some(l => l.toLowerCase().includes(q))
+				|| tt.tags.some(l => l.toLowerCase().includes(q))
 				|| tt.initials.toLowerCase().includes(q)
 				|| tt.priority.toLowerCase().includes(q);
 			entry.el.style.display = match ? '' : 'none';

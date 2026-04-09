@@ -17,12 +17,7 @@ import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { renderBoardContent } from './prendgameBoardPane.js';
 import { renderDocsContent } from './prendgameDocsPane.js';
-
-const T = {
-	accent: '#6366f1', surface: '#141416', surfaceHover: '#1c1c20',
-	border: '#1e1e22', text: '#e4e4e7', textMuted: '#71717a', textFaint: '#52525b',
-	radius: '6px',
-};
+import { T } from './prendgameTheme.js';
 
 export class PRendgameMainPane extends ViewPane {
 

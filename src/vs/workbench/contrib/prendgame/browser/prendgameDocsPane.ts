@@ -4,44 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { $, append, getWindow } from '../../../../base/browser/dom.js';
-import { IViewPaneOptions, ViewPane } from '../../../browser/parts/views/viewPane.js';
-import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
-import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
-import { IViewDescriptorService } from '../../../common/views.js';
-import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
-import { IOpenerService } from '../../../../platform/opener/common/opener.js';
-import { IThemeService } from '../../../../platform/theme/common/themeService.js';
-import { IHoverService } from '../../../../platform/hover/browser/hover.js';
-import { ICommandService } from '../../../../platform/commands/common/commands.js';
-
-const T = {
-	accent: '#6366f1', surface: '#141416', surfaceHover: '#1c1c20',
-	border: '#1e1e22', borderSubtle: '#16161a', text: '#e4e4e7', textMuted: '#71717a', textFaint: '#52525b',
-	radius: '6px', radiusSm: '4px', radiusPill: '10px',
-};
-const TYPE_COLORS: Record<string, string> = { prd: '#6366f1', spec: '#06b6d4', user_story: '#8b5cf6', research: '#f59e0b', meeting_notes: '#71717a', adr: '#ec4899' };
-const TYPE_LABELS: Record<string, string> = { prd: 'PRD', spec: 'Spec', user_story: 'Story', research: 'Research', meeting_notes: 'Notes', adr: 'ADR' };
-const STATUSES = ['draft', 'in_review', 'approved', 'ready_for_dev', 'archived'];
-const STATUS_LABELS: Record<string, string> = { draft: 'Draft', in_review: 'In Review', approved: 'Approved', ready_for_dev: 'Ready for Dev', archived: 'Archived' };
-const STATUS_COLORS: Record<string, string> = { draft: '#71717a', in_review: '#a855f7', approved: '#22c55e', ready_for_dev: '#3b82f6', archived: '#3f3f46' };
-
-interface IDoc { id: string; title: string; type: string; status: string; owner: string; ownerInitials: string; ownerColor: string; tasksTotal: number; tasksDone: number; updatedAt: string; content: string }
-
-function getInitialDocs(): IDoc[] {
-	return [
-		{ id: 'doc-prd-v1', title: 'Core Task Management', type: 'prd', status: 'approved', owner: 'Alex Chen', ownerInitials: 'AC', ownerColor: '#6366f1', tasksTotal: 4, tasksDone: 2, updatedAt: 'Mar 28', content: '## Overview\n\nThe foundational feature of PRendgame: a kanban-style task board.\n\n## Goals\n\n1. Engineers can see and manage their tasks without opening a browser\n2. PMs can create and prioritize tasks in the same tool\n3. Task state is visible to AI agents via MCP\n\n## Requirements\n\n- [x] Default columns: Backlog, To Do, In Progress, In Review, Done\n- [x] Drag-and-drop between columns\n- [ ] Filter by assignee, label, priority, sprint\n- [ ] Comments thread\n- [ ] Activity log' },
-		{ id: 'doc-prd-v2', title: 'Documentation & Diagrams', type: 'prd', status: 'draft', owner: 'Alex Chen', ownerInitials: 'AC', ownerColor: '#6366f1', tasksTotal: 1, tasksDone: 0, updatedAt: 'Apr 1', content: '## Overview\n\nEmbed a rich document editor inside PRendgame.\n\n## Goals\n\n1. PMs can author requirements without leaving the IDE\n2. Documents are first-class objects linked to tasks\n3. AI agents can read documents to understand context' },
-		{ id: 'doc-prd-v3', title: 'AI-Native Integration (MCP)', type: 'prd', status: 'draft', owner: 'Alex Chen', ownerInitials: 'AC', ownerColor: '#6366f1', tasksTotal: 2, tasksDone: 0, updatedAt: 'Apr 4', content: '## Overview\n\nPRendgame is the project context layer that AI agents plug into via MCP.\n\n## MCP Tools\n\n- prendgame.tasks.list\n- prendgame.tasks.get\n- prendgame.tasks.create\n- prendgame.tasks.transition\n- prendgame.docs.list\n- prendgame.docs.get' },
-		{ id: 'doc-prd-v4', title: 'Cloud Sync & Collaboration', type: 'prd', status: 'draft', owner: 'Alex Chen', ownerInitials: 'AC', ownerColor: '#6366f1', tasksTotal: 5, tasksDone: 2, updatedAt: 'Apr 5', content: '## Overview\n\nSupabase-backed cloud sync for team collaboration.\n\n## Tiers\n\n- Free: Local tasks and docs\n- Team: Cloud sync, shared boards\n- Enterprise: SSO, audit logs' },
-		{ id: 'doc-prd-v5', title: 'Product Workspace', type: 'prd', status: 'ready_for_dev', owner: 'Alex Chen', ownerInitials: 'AC', ownerColor: '#6366f1', tasksTotal: 0, tasksDone: 0, updatedAt: 'Apr 9', content: '## Overview\n\nA Notion-style document workspace for Product Managers.\n\n## Goals\n\n1. PMs can create rich documents inside PRendgame\n2. Documents have custom attributes and multiple views\n3. Documents can be converted into engineering tasks' },
-		{ id: 'doc-spec-auth', title: 'Authentication Architecture', type: 'spec', status: 'approved', owner: 'Jordan Park', ownerInitials: 'JP', ownerColor: '#06b6d4', tasksTotal: 1, tasksDone: 1, updatedAt: 'Mar 30', content: '## Approach\n\nSupabase Auth with email/password + GitHub OAuth.\n\n## Flow\n\n1. User clicks Sign In\n2. Browser opens for OAuth\n3. Redirect back to prendgame://\n4. Token stored in SecretStorage' },
-		{ id: 'doc-story-onboard', title: 'PM Onboarding Flow', type: 'user_story', status: 'in_review', owner: 'Alex Chen', ownerInitials: 'AC', ownerColor: '#6366f1', tasksTotal: 0, tasksDone: 0, updatedAt: 'Apr 8', content: '## As a new PM\n\nI want to quickly understand how to create documents and track sprints.\n\n## Acceptance Criteria\n\n- [ ] Welcome walkthrough\n- [ ] Template picker\n- [ ] Sample project' },
-		{ id: 'doc-research-mcp', title: 'MCP Protocol Feasibility', type: 'research', status: 'approved', owner: 'Jordan Park', ownerInitials: 'JP', ownerColor: '#06b6d4', tasksTotal: 0, tasksDone: 0, updatedAt: 'Apr 3', content: '## Summary\n\nMCP is viable for exposing PRendgame data to AI agents.\n\n## Findings\n\n- Claude Code supports MCP natively\n- Sub-100ms latency for local calls\n- Tool definitions are straightforward JSON schema' },
-		{ id: 'doc-notes-retro', title: 'Sprint 1 Retrospective', type: 'meeting_notes', status: 'draft', owner: 'Taylor Reeves', ownerInitials: 'TR', ownerColor: '#8b5cf6', tasksTotal: 0, tasksDone: 0, updatedAt: 'Apr 4', content: '## What went well\n\n- Auth flow completed ahead of schedule\n- Supabase schema is solid\n\n## What could improve\n\n- Need better task estimation\n- PR reviews took too long\n\n## Action items\n\n- [ ] Set up review SLAs\n- [ ] Add story points to tasks' },
-	];
-}
+import { T } from './prendgameTheme.js';
+import { getDocs, PRIORITY_COLORS, PRIORITY_LABELS, DOC_TYPE_COLORS as TYPE_COLORS, DOC_TYPE_LABELS as TYPE_LABELS, DOC_STATUSES as STATUSES, DOC_STATUS_LABELS as STATUS_LABELS, DOC_STATUS_COLORS as STATUS_COLORS } from './prendgameData.js';
 
 function renderMarkdownToDOM(parent: HTMLElement, text: string): void {
 	const lines = text.split('\n');
@@ -80,34 +44,10 @@ function renderMarkdownToDOM(parent: HTMLElement, text: string): void {
 	}
 }
 
-export class PRendgameDocsPane extends ViewPane {
-
-	constructor(
-		options: IViewPaneOptions,
-		@IKeybindingService keybindingService: IKeybindingService,
-		@IContextMenuService contextMenuService: IContextMenuService,
-		@IConfigurationService configurationService: IConfigurationService,
-		@IContextKeyService contextKeyService: IContextKeyService,
-		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
-		@IInstantiationService instantiationService: IInstantiationService,
-		@IOpenerService openerService: IOpenerService,
-		@IThemeService themeService: IThemeService,
-		@IHoverService hoverService: IHoverService,
-		@ICommandService private readonly commandService: ICommandService,
-	) {
-		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, hoverService);
-	}
-
-	protected override renderBody(container: HTMLElement): void {
-		super.renderBody(container);
-		const root = append(container, $('div'));
-		root.style.cssText = `overflow-y:auto;height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;-webkit-font-smoothing:antialiased;`;
-		renderDocsContent(root, this.commandService);
-	}
-}
+// -- Render -------------------------------------------------------------------
 
 export function renderDocsContent(root: HTMLElement, commandService: { executeCommand(id: string, ...args: unknown[]): unknown }): void {
-	const docs = getInitialDocs();
+	const docs = getDocs();
 
 	// State
 	let activeFilter = '';
@@ -205,7 +145,7 @@ export function renderDocsContent(root: HTMLElement, commandService: { executeCo
 		btn.addEventListener('mouseleave', () => { btn.style.color = T.textMuted; btn.style.borderColor = T.border; btn.style.background = ''; });
 		btn.addEventListener('click', () => {
 			const id = `doc-new-${Date.now()}`;
-			docs.unshift({ id, title: 'Untitled Document', type: 'prd', status: 'draft', owner: 'Alex Chen', ownerInitials: 'AC', ownerColor: '#6366f1', tasksTotal: 0, tasksDone: 0, updatedAt: 'Just now', content: '## Overview\n\nDescribe the purpose of this document.\n\n## Goals\n\n1. \n2. \n3. \n' });
+			docs.unshift({ id, title: 'Untitled Document', type: 'prd', status: 'draft', priority: 'medium', owner: 'Alex Chen', ownerInitials: 'AC', ownerColor: '#6366f1', tasksTotal: 0, tasksDone: 0, updatedAt: 'Just now', content: '## Overview\n\nDescribe the purpose of this document.\n\n## Goals\n\n1. \n2. \n3. \n' });
 			showDetail(id);
 		});
 	}
@@ -382,13 +322,11 @@ export function renderDocsContent(root: HTMLElement, commandService: { executeCo
 		prioLbl.textContent = 'Priority';
 		const prioWrap = append(attrsSection, $('div'));
 		prioWrap.style.cssText = 'position:relative;';
-		const priorities = ['Low', 'Medium', 'High', 'Critical'];
-		const prioColors: Record<string, string> = { Low: '#52525b', Medium: '#ca8a04', High: '#ea580c', Critical: '#ef4444' };
-		let docPriority = 'High';
+		const priorities = ['low', 'medium', 'high', 'critical'];
 		const prioPill = append(prioWrap, $('span'));
-		let ppc = prioColors[docPriority] || '#666';
+		let ppc = PRIORITY_COLORS[doc.priority] || '#666';
 		prioPill.style.cssText = `font-size:11px;padding:2px 8px;border-radius:${T.radiusPill};background:${ppc}20;color:${ppc};cursor:pointer;font-weight:500;`;
-		prioPill.textContent = docPriority + ' \u25BE';
+		prioPill.textContent = (PRIORITY_LABELS[doc.priority] || doc.priority) + ' \u25BE';
 		let prioDD: HTMLElement | null = null;
 		prioPill.addEventListener('click', () => {
 			if (prioDD) { prioDD.remove(); prioDD = null; return; }
@@ -397,15 +335,15 @@ export function renderDocsContent(root: HTMLElement, commandService: { executeCo
 			dd.style.cssText = `position:absolute;top:100%;left:0;margin-top:4px;background:${T.surface};border:1px solid ${T.border};border-radius:${T.radius};padding:4px 0;z-index:1000;min-width:110px;box-shadow:0 4px 12px rgba(0,0,0,0.3);`;
 			for (const p of priorities) {
 				const opt = append(dd, $('div'));
-				const opc = prioColors[p] || '#666';
+				const opc = PRIORITY_COLORS[p] || '#666';
 				opt.style.cssText = `display:flex;align-items:center;gap:8px;padding:5px 12px;cursor:pointer;font-size:11px;color:${T.textMuted};transition:background 0.1s;`;
 				opt.addEventListener('mouseenter', () => { opt.style.background = T.surfaceHover; });
 				opt.addEventListener('mouseleave', () => { opt.style.background = ''; });
 				const od = append(opt, $('span'));
 				od.style.cssText = `width:6px;height:6px;border-radius:50%;background:${opc};flex-shrink:0;`;
 				const ol = append(opt, $('span'));
-				ol.textContent = p;
-				opt.addEventListener('click', (e) => { e.stopPropagation(); docPriority = p; ppc = opc; prioPill.style.background = `${ppc}20`; prioPill.style.color = ppc; prioPill.textContent = p + ' \u25BE'; dd.remove(); prioDD = null; });
+				ol.textContent = PRIORITY_LABELS[p] || p;
+				opt.addEventListener('click', (e) => { e.stopPropagation(); doc.priority = p; ppc = opc; prioPill.style.background = `${ppc}20`; prioPill.style.color = ppc; prioPill.textContent = (PRIORITY_LABELS[p] || p) + ' \u25BE'; dd.remove(); prioDD = null; });
 			}
 			const w = getWindow(prioWrap);
 			const closeFn = (e: Event) => { if (!prioWrap.contains(e.target as Node)) { dd.remove(); prioDD = null; w.document.removeEventListener('click', closeFn); } };
