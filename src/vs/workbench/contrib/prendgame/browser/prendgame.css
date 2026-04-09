@@ -1,0 +1,276 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/* === PRendgame Board Pane === */
+
+.prendgame-board-pane {
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+
+/* Header */
+.pg-board-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 8px 12px;
+	border-bottom: 1px solid var(--vscode-panel-border);
+	flex-shrink: 0;
+}
+
+.pg-board-header-left {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.pg-project-key {
+	font-size: 11px;
+	font-weight: 600;
+	color: var(--vscode-focusBorder);
+	background: var(--vscode-badge-background);
+	padding: 2px 8px;
+	border-radius: 3px;
+}
+
+.pg-board-title {
+	font-size: 14px;
+	font-weight: 600;
+}
+
+/* Presence */
+.pg-presence-row {
+	display: flex;
+	gap: 4px;
+}
+
+.pg-presence-avatar {
+	position: relative;
+}
+
+.pg-avatar {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 50%;
+	font-weight: 600;
+	color: #fff;
+	width: 26px;
+	height: 26px;
+	font-size: 10px;
+}
+
+.pg-avatar--sm {
+	width: 22px;
+	height: 22px;
+	font-size: 9px;
+}
+
+.pg-status-dot {
+	position: absolute;
+	bottom: -1px;
+	right: -1px;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	border: 2px solid var(--vscode-editor-background);
+}
+
+.pg-status-dot--online { background: #22c55e; }
+.pg-status-dot--away { background: #eab308; }
+.pg-status-dot--offline { background: #6b7280; }
+
+/* Sprint Banner */
+.pg-sprint-banner {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 5px 12px;
+	font-size: 12px;
+	background: color-mix(in srgb, var(--vscode-focusBorder) 8%, transparent);
+	border-bottom: 1px solid var(--vscode-panel-border);
+	flex-shrink: 0;
+}
+
+.pg-sprint-dates {
+	opacity: 0.5;
+}
+
+/* View Tabs */
+.pg-view-tabs {
+	display: flex;
+	padding: 0 12px;
+	border-bottom: 1px solid var(--vscode-panel-border);
+	flex-shrink: 0;
+}
+
+.pg-view-tab {
+	padding: 6px 14px;
+	cursor: pointer;
+	font-size: 12px;
+	border: none;
+	background: none;
+	color: var(--vscode-editor-foreground);
+	border-bottom: 2px solid transparent;
+	opacity: 0.5;
+	transition: opacity 0.1s;
+}
+
+.pg-view-tab:hover { opacity: 0.8; }
+.pg-view-tab--active { opacity: 1; border-bottom-color: var(--vscode-focusBorder); }
+
+/* Kanban Board */
+.pg-board-kanban {
+	display: flex;
+	gap: 10px;
+	padding: 10px 12px;
+	overflow-x: auto;
+	overflow-y: auto;
+	flex: 1;
+}
+
+.pg-column {
+	min-width: 220px;
+	max-width: 260px;
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+}
+
+.pg-column-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 4px 2px 6px;
+	font-size: 11px;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	opacity: 0.55;
+	user-select: none;
+}
+
+.pg-column-count {
+	background: var(--vscode-badge-background);
+	color: var(--vscode-badge-foreground);
+	padding: 0 6px;
+	border-radius: 8px;
+	font-size: 10px;
+	min-width: 18px;
+	text-align: center;
+}
+
+.pg-column-body {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	padding: 4px;
+	border-radius: 4px;
+	min-height: 40px;
+	transition: background 0.15s, outline 0.15s;
+}
+
+.pg-column-body--dragover {
+	background: color-mix(in srgb, var(--vscode-focusBorder) 10%, transparent);
+	outline: 2px dashed var(--vscode-focusBorder);
+	outline-offset: -2px;
+}
+
+/* Add Column */
+.pg-add-column {
+	min-width: 40px;
+	display: flex;
+	align-items: flex-start;
+	justify-content: center;
+	padding-top: 24px;
+	opacity: 0.2;
+	cursor: pointer;
+	font-size: 20px;
+	user-select: none;
+}
+
+.pg-add-column:hover { opacity: 0.5; }
+
+/* Task Card */
+.pg-task-card {
+	background: var(--vscode-editorWidget-background);
+	border: 1px solid var(--vscode-panel-border);
+	border-radius: 5px;
+	padding: 8px 10px;
+	cursor: grab;
+	transition: border-color 0.12s, box-shadow 0.12s, transform 0.12s, opacity 0.12s;
+	user-select: none;
+}
+
+.pg-task-card:hover {
+	border-color: var(--vscode-focusBorder);
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+	transform: translateY(-1px);
+}
+
+.pg-task-card:active {
+	cursor: grabbing;
+}
+
+.pg-task-card--dragging {
+	opacity: 0.35;
+	transform: scale(0.97);
+}
+
+/* Card internals */
+.pg-card-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 4px;
+}
+
+.pg-card-id {
+	font-size: 11px;
+	font-family: var(--monaco-monospace-font);
+	opacity: 0.45;
+}
+
+.pg-card-title {
+	font-size: 12px;
+	line-height: 1.4;
+	margin-bottom: 6px;
+}
+
+.pg-card-footer {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+
+.pg-card-labels {
+	display: flex;
+	gap: 3px;
+	flex-wrap: wrap;
+}
+
+.pg-card-label {
+	font-size: 10px;
+	padding: 1px 5px;
+	border-radius: 3px;
+	background: var(--vscode-badge-background);
+	color: var(--vscode-badge-foreground);
+	opacity: 0.75;
+}
+
+/* Priority badges */
+.pg-priority-badge {
+	font-size: 10px;
+	padding: 1px 6px;
+	border-radius: 3px;
+	font-weight: 500;
+	text-transform: capitalize;
+}
+
+.pg-priority-badge--critical { background: #dc2626; color: #fff; }
+.pg-priority-badge--high { background: #ea580c; color: #fff; }
+.pg-priority-badge--medium { background: #ca8a04; color: #fff; }
+.pg-priority-badge--low { background: #4b5563; color: #d1d5db; }
