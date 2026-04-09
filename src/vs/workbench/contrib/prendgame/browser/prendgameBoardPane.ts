@@ -93,6 +93,137 @@ export class PRendgameBoardPane extends ViewPane {
 		const root = append(container, $('div'));
 		root.style.cssText = 'overflow-y:auto;height:100%;';
 
+		const groups = getGroups();
+
+		// Drag state
+		let dragTaskId: string | null = null;
+		let dragSourceGroup: string | null = null;
+		const dropZones: { el: HTMLElement; groupId: string }[] = [];
+		const cardsContainers: { el: HTMLElement; groupId: string }[] = [];
+		const badges: { el: HTMLElement; groupId: string }[] = [];
+		const twisties: { el: HTMLElement; groupId: string }[] = [];
+
+		function clearDropHighlights() {
+			for (const dz of dropZones) {
+				dz.el.style.cssText = 'height:0;transition:height 0.15s,background 0.15s,margin 0.15s;overflow:hidden;';
+			}
+		}
+
+		function showDropHighlights() {
+			for (const dz of dropZones) {
+				if (dz.groupId !== dragSourceGroup) {
+					dz.el.style.cssText = 'height:28px;margin:2px 16px;border-radius:4px;background:color-mix(in srgb, var(--vscode-focusBorder) 12%, transparent);border:1px dashed var(--vscode-focusBorder);transition:height 0.15s,background 0.15s,margin 0.15s;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--vscode-descriptionForeground);';
+					dz.el.textContent = 'Drop here';
+				}
+			}
+		}
+
+		function moveTask(taskId: string, targetGroupId: string) {
+			// Find and remove from source
+			let task: ITask | undefined;
+			for (const g of groups) {
+				const idx = g.tasks.findIndex(t => t.id === taskId);
+				if (idx !== -1) {
+					task = g.tasks.splice(idx, 1)[0];
+					// Update source container
+					const srcContainer = cardsContainers.find(c => c.groupId === g.id);
+					const srcBadge = badges.find(b => b.groupId === g.id);
+					if (srcContainer) {
+						// Remove the row from DOM
+						const rows = srcContainer.el.children;
+						for (let i = 0; i < rows.length; i++) {
+							if ((rows[i] as HTMLElement).dataset.taskId === taskId) {
+								srcContainer.el.removeChild(rows[i]);
+								break;
+							}
+						}
+					}
+					if (srcBadge) {
+						srcBadge.el.textContent = String(g.tasks.length);
+					}
+					break;
+				}
+			}
+
+			if (!task) { return; }
+
+			// Add to target
+			const targetGroup = groups.find(g => g.id === targetGroupId);
+			if (!targetGroup) { return; }
+			targetGroup.tasks.push(task);
+
+			const tgtContainer = cardsContainers.find(c => c.groupId === targetGroupId);
+			const tgtBadge = badges.find(b => b.groupId === targetGroupId);
+			const tgtTwistie = twisties.find(tw => tw.groupId === targetGroupId);
+
+			if (tgtBadge) {
+				tgtBadge.el.textContent = String(targetGroup.tasks.length);
+			}
+
+			// Expand target if collapsed
+			if (tgtContainer && tgtContainer.el.style.display === 'none') {
+				tgtContainer.el.style.display = '';
+				if (tgtTwistie) {
+					tgtTwistie.el.style.transform = 'rotate(90deg)';
+				}
+			}
+
+			// Add row to target container
+			if (tgtContainer) {
+				renderTaskRow(tgtContainer.el, task);
+			}
+		}
+
+		function renderTaskRow(parent: HTMLElement, task: ITask) {
+			const row = append(parent, $('div'));
+			row.style.cssText = 'display:flex;align-items:center;gap:6px;padding:0 16px 0 38px;height:22px;cursor:grab;';
+			row.dataset.taskId = task.id;
+			row.draggable = true;
+			row.addEventListener('mouseenter', () => { if (!dragTaskId) { row.style.background = 'var(--vscode-list-hoverBackground)'; } });
+			row.addEventListener('mouseleave', () => { row.style.background = ''; });
+
+			row.addEventListener('dragstart', (e) => {
+				dragTaskId = task.id;
+				// Find which group this task is in
+				for (const g of groups) {
+					if (g.tasks.some(t => t.id === task.id)) {
+						dragSourceGroup = g.id;
+						break;
+					}
+				}
+				row.style.opacity = '0.35';
+				if (e.dataTransfer) {
+					e.dataTransfer.effectAllowed = 'move';
+					e.dataTransfer.setData('text/plain', task.id);
+				}
+				showDropHighlights();
+			});
+			row.addEventListener('dragend', () => {
+				dragTaskId = null;
+				dragSourceGroup = null;
+				row.style.opacity = '1';
+				clearDropHighlights();
+			});
+
+			const pBar = append(row, $('span'));
+			const pc = PRIORITY_COLORS[task.priority] || '#666';
+			pBar.style.cssText = `width:3px;height:14px;border-radius:1px;background:${pc};flex-shrink:0;`;
+
+			const tid = append(row, $('span'));
+			tid.style.cssText = 'font-size:11px;opacity:0.45;font-family:var(--monaco-monospace-font);white-space:nowrap;';
+			tid.textContent = task.id;
+
+			const title = append(row, $('span'));
+			title.style.cssText = 'font-size:12px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:22px;';
+			title.textContent = task.title;
+			title.title = task.title;
+
+			const av = append(row, $('span'));
+			av.style.cssText = `display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;font-size:7px;font-weight:600;color:#fff;flex-shrink:0;background:${task.color};`;
+			av.textContent = task.initials;
+			av.title = task.initials;
+		}
+
 		// -- Sprint bar -------------------------------------------------------
 		const sprint = append(root, $('div'));
 		sprint.style.cssText = 'display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid var(--vscode-sideBar-border,var(--vscode-panel-border));';
@@ -110,9 +241,8 @@ export class PRendgameBoardPane extends ViewPane {
 
 		// -- Summary pills -----------------------------------------------------
 		const pills = append(root, $('div'));
-		pills.style.cssText = 'display:flex;gap:6px;padding:8px 16px;border-bottom:1px solid var(--vscode-sideBar-border,var(--vscode-panel-border));';
+		pills.style.cssText = 'display:flex;gap:6px;padding:8px 16px;border-bottom:1px solid var(--vscode-sideBar-border,var(--vscode-panel-border));flex-wrap:wrap;';
 
-		const groups = getGroups();
 		const totalTasks = groups.reduce((sum, g) => sum + g.tasks.length, 0);
 
 		for (const g of groups) {
@@ -129,42 +259,62 @@ export class PRendgameBoardPane extends ViewPane {
 
 		// -- Groups -----------------------------------------------------------
 		for (const group of groups) {
-			// Section header (22px line-height, matching VS Code tree rows)
+			// Section header
 			const hdr = append(root, $('div'));
 			hdr.style.cssText = 'display:flex;align-items:center;gap:6px;padding:0 16px;height:28px;cursor:pointer;user-select:none;';
 			hdr.addEventListener('mouseenter', () => { hdr.style.background = 'var(--vscode-list-hoverBackground)'; });
 			hdr.addEventListener('mouseleave', () => { hdr.style.background = ''; });
 
-			// Twistie (matches VS Code tree twistie: 16px wide, 10px font)
 			const twistie = append(hdr, $('span'));
 			twistie.style.cssText = 'width:16px;font-size:10px;text-align:center;color:var(--vscode-descriptionForeground);transition:transform 0.12s;';
 			twistie.textContent = '\u25B6';
 			if (!group.collapsed) {
 				twistie.style.transform = 'rotate(90deg)';
 			}
+			twisties.push({ el: twistie, groupId: group.id });
 
-			// Status indicator
 			const statusDot = append(hdr, $('span'));
 			const sc = STATUS_COLORS[group.id] || '#666';
 			statusDot.style.cssText = `width:8px;height:8px;border-radius:2px;background:${sc};flex-shrink:0;`;
 
-			// Name
 			const label = append(hdr, $('span'));
 			label.style.cssText = 'font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--vscode-foreground);';
 			label.textContent = group.name;
 
-			// Count badge
 			const badge = append(hdr, $('span'));
 			badge.style.cssText = 'font-size:10px;background:var(--vscode-badge-background);color:var(--vscode-badge-foreground);padding:0 5px;border-radius:8px;margin-left:auto;min-width:16px;text-align:center;';
 			badge.textContent = String(group.tasks.length);
+			badges.push({ el: badge, groupId: group.id });
+
+			// Drop zone (above cards)
+			const dz = append(root, $('div'));
+			dz.style.cssText = 'height:0;transition:height 0.15s,background 0.15s,margin 0.15s;overflow:hidden;';
+			dropZones.push({ el: dz, groupId: group.id });
+
+			dz.addEventListener('dragover', (e) => {
+				e.preventDefault();
+				if (e.dataTransfer) { e.dataTransfer.dropEffect = 'move'; }
+				dz.style.background = 'color-mix(in srgb, var(--vscode-focusBorder) 22%, transparent)';
+			});
+			dz.addEventListener('dragleave', () => {
+				dz.style.background = 'color-mix(in srgb, var(--vscode-focusBorder) 12%, transparent)';
+			});
+			dz.addEventListener('drop', (e) => {
+				e.preventDefault();
+				if (dragTaskId) {
+					moveTask(dragTaskId, group.id);
+				}
+				clearDropHighlights();
+			});
 
 			// Cards container
 			const cards = append(root, $('div'));
 			if (group.collapsed) {
 				cards.style.display = 'none';
 			}
+			cardsContainers.push({ el: cards, groupId: group.id });
 
-			// Separator after section
+			// Separator
 			const sep = append(root, $('div'));
 			sep.style.cssText = 'height:1px;background:var(--vscode-sideBar-border,var(--vscode-panel-border));';
 
@@ -177,32 +327,7 @@ export class PRendgameBoardPane extends ViewPane {
 
 			// Render task rows
 			for (const task of group.tasks) {
-				const row = append(cards, $('div'));
-				row.style.cssText = 'display:flex;align-items:center;gap:6px;padding:0 16px 0 38px;height:22px;cursor:pointer;';
-				row.addEventListener('mouseenter', () => { row.style.background = 'var(--vscode-list-hoverBackground)'; });
-				row.addEventListener('mouseleave', () => { row.style.background = ''; });
-
-				// Priority indicator (thin left bar)
-				const pBar = append(row, $('span'));
-				const pc = PRIORITY_COLORS[task.priority] || '#666';
-				pBar.style.cssText = `width:3px;height:14px;border-radius:1px;background:${pc};flex-shrink:0;`;
-
-				// Task ID
-				const tid = append(row, $('span'));
-				tid.style.cssText = 'font-size:11px;opacity:0.45;font-family:var(--monaco-monospace-font);white-space:nowrap;';
-				tid.textContent = task.id;
-
-				// Task title
-				const title = append(row, $('span'));
-				title.style.cssText = 'font-size:12px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:22px;';
-				title.textContent = task.title;
-				title.title = task.title;
-
-				// Assignee
-				const av = append(row, $('span'));
-				av.style.cssText = `display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;font-size:7px;font-weight:600;color:#fff;flex-shrink:0;background:${task.color};`;
-				av.textContent = task.initials;
-				av.title = task.initials;
+				renderTaskRow(cards, task);
 			}
 		}
 
@@ -214,7 +339,6 @@ export class PRendgameBoardPane extends ViewPane {
 		sprintTitle.style.cssText = 'font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--vscode-descriptionForeground);margin-bottom:8px;';
 		sprintTitle.textContent = 'Sprint Progress';
 
-		// Progress bar
 		const doneTasks = groups.find(g => g.id === 'done')?.tasks.length || 0;
 		const pct = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
 
@@ -232,10 +356,10 @@ export class PRendgameBoardPane extends ViewPane {
 		const actions = append(root, $('div'));
 		actions.style.cssText = 'display:flex;gap:6px;padding:4px 16px 14px;';
 
-		const makeBtn = (label: string, command: string) => {
+		const makeBtn = (btnLabel: string, command: string) => {
 			const b = append(actions, $('div'));
 			b.style.cssText = 'flex:1;display:flex;align-items:center;justify-content:center;padding:5px;border-radius:4px;border:1px solid var(--vscode-sideBar-border,var(--vscode-panel-border));cursor:pointer;font-size:11px;color:var(--vscode-descriptionForeground);transition:all 0.12s;';
-			b.textContent = label;
+			b.textContent = btnLabel;
 			b.addEventListener('mouseenter', () => {
 				b.style.color = 'var(--vscode-foreground)';
 				b.style.borderColor = 'var(--vscode-focusBorder)';
