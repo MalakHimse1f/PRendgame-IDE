@@ -325,9 +325,139 @@ export function renderDocsContent(root: HTMLElement, commandService: { executeCo
 			tp.textContent = `${doc.tasksDone}/${doc.tasksTotal} tasks`;
 		}
 
+		// Attributes grid
+		const attrsSection = append(detailContainer, $('div'));
+		attrsSection.style.cssText = `padding:12px 20px;border-bottom:1px solid ${T.border};display:grid;grid-template-columns:100px 1fr;gap:6px 12px;align-items:center;`;
+
+		// Type (read-only display)
+		const typeLbl2 = append(attrsSection, $('span'));
+		typeLbl2.style.cssText = `font-size:11px;color:${T.textFaint};`;
+		typeLbl2.textContent = 'Type';
+		const typeVal = append(attrsSection, $('span'));
+		const tc2 = TYPE_COLORS[doc.type] || '#666';
+		typeVal.style.cssText = `font-size:11px;padding:2px 8px;border-radius:3px;background:${tc2}20;color:${tc2};font-weight:500;width:fit-content;`;
+		typeVal.textContent = TYPE_LABELS[doc.type] || doc.type;
+
+		// Priority (dropdown)
+		const prioLbl = append(attrsSection, $('span'));
+		prioLbl.style.cssText = `font-size:11px;color:${T.textFaint};`;
+		prioLbl.textContent = 'Priority';
+		const prioWrap = append(attrsSection, $('div'));
+		prioWrap.style.cssText = 'position:relative;';
+		const priorities = ['Low', 'Medium', 'High', 'Critical'];
+		const prioColors: Record<string, string> = { Low: '#52525b', Medium: '#ca8a04', High: '#ea580c', Critical: '#ef4444' };
+		let docPriority = 'High';
+		const prioPill = append(prioWrap, $('span'));
+		let ppc = prioColors[docPriority] || '#666';
+		prioPill.style.cssText = `font-size:11px;padding:2px 8px;border-radius:${T.radiusPill};background:${ppc}20;color:${ppc};cursor:pointer;font-weight:500;`;
+		prioPill.textContent = docPriority + ' \u25BE';
+		let prioDD: HTMLElement | null = null;
+		prioPill.addEventListener('click', () => {
+			if (prioDD) { prioDD.remove(); prioDD = null; return; }
+			const dd = append(prioWrap, $('div'));
+			prioDD = dd;
+			dd.style.cssText = `position:absolute;top:100%;left:0;margin-top:4px;background:${T.surface};border:1px solid ${T.border};border-radius:${T.radius};padding:4px 0;z-index:1000;min-width:110px;box-shadow:0 4px 12px rgba(0,0,0,0.3);`;
+			for (const p of priorities) {
+				const opt = append(dd, $('div'));
+				const opc = prioColors[p] || '#666';
+				opt.style.cssText = `display:flex;align-items:center;gap:8px;padding:5px 12px;cursor:pointer;font-size:11px;color:${T.textMuted};transition:background 0.1s;`;
+				opt.addEventListener('mouseenter', () => { opt.style.background = T.surfaceHover; });
+				opt.addEventListener('mouseleave', () => { opt.style.background = ''; });
+				const od = append(opt, $('span'));
+				od.style.cssText = `width:6px;height:6px;border-radius:50%;background:${opc};flex-shrink:0;`;
+				const ol = append(opt, $('span'));
+				ol.textContent = p;
+				opt.addEventListener('click', (e) => { e.stopPropagation(); docPriority = p; ppc = opc; prioPill.style.background = `${ppc}20`; prioPill.style.color = ppc; prioPill.textContent = p + ' \u25BE'; dd.remove(); prioDD = null; });
+			}
+			const w = getWindow(prioWrap);
+			const closeFn = (e: Event) => { if (!prioWrap.contains(e.target as Node)) { dd.remove(); prioDD = null; w.document.removeEventListener('click', closeFn); } };
+			setTimeout(() => w.document.addEventListener('click', closeFn), 0);
+		});
+
+		// Sprint
+		const sprintLbl = append(attrsSection, $('span'));
+		sprintLbl.style.cssText = `font-size:11px;color:${T.textFaint};`;
+		sprintLbl.textContent = 'Sprint';
+		const sprintVal = append(attrsSection, $('span'));
+		sprintVal.style.cssText = `font-size:11px;color:${T.text};`;
+		sprintVal.textContent = 'Sprint 2';
+
+		// Target Release (editable text)
+		const relLbl = append(attrsSection, $('span'));
+		relLbl.style.cssText = `font-size:11px;color:${T.textFaint};`;
+		relLbl.textContent = 'Target Release';
+		const relVal = append(attrsSection, $('span'));
+		relVal.style.cssText = `font-size:11px;color:${T.text};cursor:text;padding:2px 4px;border-radius:${T.radiusSm};transition:background 0.1s;`;
+		let relText = 'v1.0';
+		relVal.textContent = relText;
+		relVal.addEventListener('mouseenter', () => { relVal.style.background = T.surfaceHover; });
+		relVal.addEventListener('mouseleave', () => { relVal.style.background = ''; });
+		relVal.addEventListener('click', () => {
+			const input = document.createElement('input');
+			input.type = 'text';
+			input.value = relText;
+			input.style.cssText = `width:100%;box-sizing:border-box;background:${T.surface};border:1px solid ${T.accent};color:${T.text};padding:2px 6px;border-radius:${T.radiusSm};font-size:11px;font-family:inherit;outline:none;`;
+			relVal.textContent = '';
+			relVal.appendChild(input);
+			input.focus();
+			input.select();
+			const finish = () => { relText = input.value.trim() || relText; relVal.textContent = relText; };
+			input.addEventListener('blur', finish);
+			input.addEventListener('keydown', (ke) => { if (ke.key === 'Enter') { input.blur(); } if (ke.key === 'Escape') { relVal.textContent = relText; } });
+		});
+
+		// Effort Estimate (dropdown)
+		const effLbl = append(attrsSection, $('span'));
+		effLbl.style.cssText = `font-size:11px;color:${T.textFaint};`;
+		effLbl.textContent = 'Effort';
+		const effWrap = append(attrsSection, $('div'));
+		effWrap.style.cssText = 'position:relative;';
+		const sizes = ['S', 'M', 'L', 'XL'];
+		let effSize = 'L';
+		const effPill = append(effWrap, $('span'));
+		effPill.style.cssText = `font-size:11px;padding:2px 8px;border-radius:${T.radiusPill};background:${T.border};color:${T.textMuted};cursor:pointer;font-weight:500;`;
+		effPill.textContent = effSize + ' \u25BE';
+		let effDD: HTMLElement | null = null;
+		effPill.addEventListener('click', () => {
+			if (effDD) { effDD.remove(); effDD = null; return; }
+			const dd = append(effWrap, $('div'));
+			effDD = dd;
+			dd.style.cssText = `position:absolute;top:100%;left:0;margin-top:4px;background:${T.surface};border:1px solid ${T.border};border-radius:${T.radius};padding:4px 0;z-index:1000;min-width:60px;box-shadow:0 4px 12px rgba(0,0,0,0.3);`;
+			for (const s of sizes) {
+				const opt = append(dd, $('div'));
+				opt.style.cssText = `padding:5px 12px;cursor:pointer;font-size:11px;color:${T.textMuted};transition:background 0.1s;`;
+				opt.addEventListener('mouseenter', () => { opt.style.background = T.surfaceHover; });
+				opt.addEventListener('mouseleave', () => { opt.style.background = ''; });
+				opt.textContent = s;
+				if (s === effSize) { opt.style.fontWeight = '600'; opt.style.color = T.text; }
+				opt.addEventListener('click', (e) => { e.stopPropagation(); effSize = s; effPill.textContent = s + ' \u25BE'; dd.remove(); effDD = null; });
+			}
+			const w = getWindow(effWrap);
+			const closeFn = (e: Event) => { if (!effWrap.contains(e.target as Node)) { dd.remove(); effDD = null; w.document.removeEventListener('click', closeFn); } };
+			setTimeout(() => w.document.addEventListener('click', closeFn), 0);
+		});
+
+		// Tags
+		const tagsLbl = append(attrsSection, $('span'));
+		tagsLbl.style.cssText = `font-size:11px;color:${T.textFaint};`;
+		tagsLbl.textContent = 'Tags';
+		const tagsRow = append(attrsSection, $('div'));
+		tagsRow.style.cssText = 'display:flex;gap:4px;flex-wrap:wrap;align-items:center;';
+		const mockTags = ['product', 'v1', 'priority'];
+		for (const tag of mockTags) {
+			const tagEl = append(tagsRow, $('span'));
+			tagEl.style.cssText = `font-size:10px;padding:2px 8px;border-radius:${T.radiusPill};background:${T.border};color:${T.textMuted};`;
+			tagEl.textContent = tag;
+		}
+		const addTagBtn = append(tagsRow, $('span'));
+		addTagBtn.style.cssText = `font-size:10px;padding:2px 6px;border-radius:${T.radiusPill};border:1px dashed ${T.border};color:${T.textFaint};cursor:pointer;transition:all 0.12s;`;
+		addTagBtn.textContent = '+';
+		addTagBtn.addEventListener('mouseenter', () => { addTagBtn.style.color = T.text; addTagBtn.style.borderColor = T.accent; });
+		addTagBtn.addEventListener('mouseleave', () => { addTagBtn.style.color = T.textFaint; addTagBtn.style.borderColor = T.border; });
+
 		// Open in Editor button (single, not a mode toggle)
-		const openEditorWrap = append(header, $('div'));
-		openEditorWrap.style.cssText = 'margin-top:10px;';
+		const openEditorWrap = append(detailContainer, $('div'));
+		openEditorWrap.style.cssText = 'padding:10px 20px;';
 		const openEditorBtn = append(openEditorWrap, $('span'));
 		openEditorBtn.style.cssText = `font-size:11px;padding:4px 12px;border-radius:${T.radiusSm};border:1px solid ${T.border};cursor:pointer;color:${T.textMuted};transition:all 0.12s;`;
 		openEditorBtn.textContent = 'Open in Editor';
