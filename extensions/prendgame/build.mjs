@@ -14,6 +14,28 @@ const entries = [
 	'src/webviews/mcp-log/index.jsx',
 ];
 
+// Plugin: inject CSS into JS as <style> tags at runtime
+// This avoids needing a separate CSS file that the webview CSP would block
+const inlineCssPlugin = {
+	name: 'inline-css',
+	setup(build) {
+		build.onLoad({ filter: /\.css$/ }, async (args) => {
+			const fs = await import('fs');
+			const css = fs.readFileSync(args.path, 'utf8');
+			return {
+				contents: `
+					(function() {
+						const style = document.createElement('style');
+						style.textContent = ${JSON.stringify(css)};
+						document.head.appendChild(style);
+					})();
+				`,
+				loader: 'js',
+			};
+		});
+	},
+};
+
 const config = {
 	entryPoints: entries,
 	bundle: true,
@@ -26,8 +48,8 @@ const config = {
 	jsxImportSource: 'preact',
 	loader: { '.jsx': 'jsx' },
 	entryNames: '[dir]/[name]',
-	// Flatten output: src/webviews/board/index.jsx -> dist/board.js
 	outbase: 'src/webviews',
+	plugins: [inlineCssPlugin],
 };
 
 if (isWatch) {

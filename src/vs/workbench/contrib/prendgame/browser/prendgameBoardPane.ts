@@ -14,6 +14,7 @@ import { IInstantiationService } from '../../../../platform/instantiation/common
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
 
 // -- Data ---------------------------------------------------------------------
 
@@ -81,6 +82,7 @@ export class PRendgameBoardPane extends ViewPane {
 		@IOpenerService openerService: IOpenerService,
 		@IThemeService themeService: IThemeService,
 		@IHoverService hoverService: IHoverService,
+		@ICommandService private readonly commandService: ICommandService,
 	) {
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, hoverService);
 	}
@@ -220,6 +222,9 @@ export class PRendgameBoardPane extends ViewPane {
 			btn.style.color = 'var(--vscode-descriptionForeground)';
 			btn.style.borderColor = 'var(--vscode-sideBar-border,var(--vscode-panel-border))';
 			btn.style.background = '';
+		});
+		btn.addEventListener('click', () => {
+			this.commandService.executeCommand('prendgame.openBoard');
 		});
 	}
 }
