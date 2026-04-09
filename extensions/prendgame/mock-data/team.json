@@ -1,0 +1,73 @@
+{
+	"team": {
+		"id": "team-001",
+		"name": "PRendgame Core",
+		"plan": "team",
+		"projectKey": "PRE"
+	},
+	"members": [
+		{
+			"id": "user-001",
+			"name": "Alex Chen",
+			"email": "alex@prendgame.io",
+			"role": "Product Manager",
+			"avatar": "AC",
+			"color": "#6366f1",
+			"status": "online"
+		},
+		{
+			"id": "user-002",
+			"name": "Taylor Reeves",
+			"email": "taylor@prendgame.io",
+			"role": "Engineering Manager",
+			"avatar": "TR",
+			"color": "#8b5cf6",
+			"status": "online"
+		},
+		{
+			"id": "user-003",
+			"name": "Jordan Park",
+			"email": "jordan@prendgame.io",
+			"role": "Senior Engineer",
+			"avatar": "JP",
+			"color": "#06b6d4",
+			"status": "online"
+		},
+		{
+			"id": "user-004",
+			"name": "Morgan Liu",
+			"email": "morgan@prendgame.io",
+			"role": "Senior Engineer",
+			"avatar": "ML",
+			"color": "#10b981",
+			"status": "away"
+		},
+		{
+			"id": "user-005",
+			"name": "Sam Rivera",
+			"email": "sam@prendgame.io",
+			"role": "Junior Engineer",
+			"avatar": "SR",
+			"color": "#f59e0b",
+			"status": "online"
+		},
+		{
+			"id": "user-006",
+			"name": "Riley Brooks",
+			"email": "riley@prendgame.io",
+			"role": "Junior Engineer",
+			"avatar": "RB",
+			"color": "#ef4444",
+			"status": "offline"
+		},
+		{
+			"id": "user-007",
+			"name": "Avery Quinn",
+			"email": "avery@prendgame.io",
+			"role": "QA Engineer",
+			"avatar": "AQ",
+			"color": "#ec4899",
+			"status": "online"
+		}
+	]
+}

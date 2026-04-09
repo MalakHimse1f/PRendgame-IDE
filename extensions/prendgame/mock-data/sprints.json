@@ -1,0 +1,28 @@
+{
+	"sprints": [
+		{
+			"id": "sprint-1",
+			"name": "Sprint 1 — Foundation",
+			"goal": "Set up infrastructure: Supabase project, auth flow, and base extension scaffold.",
+			"startDate": "2026-03-25",
+			"endDate": "2026-04-04",
+			"status": "completed"
+		},
+		{
+			"id": "sprint-2",
+			"name": "Sprint 2 — Core UI",
+			"goal": "Build kanban board, task detail view, sidebar trees, and document editor.",
+			"startDate": "2026-04-07",
+			"endDate": "2026-04-18",
+			"status": "active"
+		},
+		{
+			"id": "sprint-3",
+			"name": "Sprint 3 — AI & Polish",
+			"goal": "MCP server, activity log, timeline view, sync indicators, and demo prep.",
+			"startDate": "2026-04-21",
+			"endDate": "2026-05-02",
+			"status": "planned"
+		}
+	]
+}

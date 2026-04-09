@@ -1,0 +1,59 @@
+{
+	"documents": [
+		{
+			"id": "doc-prd-v1",
+			"title": "PRD v1 — Core Task Management",
+			"type": "prd",
+			"author": "user-001",
+			"status": "approved",
+			"linkedTasks": ["PRE-3", "PRE-4", "PRE-5", "PRE-7"],
+			"createdAt": "2026-03-20T10:00:00Z",
+			"updatedAt": "2026-03-28T16:00:00Z",
+			"content": "# PRD v1 — Core Task Management\n\n**Status:** Approved\n**Author:** Alex Chen\n\n---\n\n## Overview\n\nThe foundational feature of PRendgame: a kanban-style task board embedded in the VS Code sidebar/panel.\n\n## Goals\n\n1. Engineers can see and manage their tasks without opening a browser\n2. PMs can create and prioritize tasks in the same tool engineers use\n3. Task state is visible to AI agents via API/MCP\n\n## Requirements\n\n### Board View (Kanban)\n- Default columns: Backlog, To Do, In Progress, In Review, Done\n- Customizable columns per project\n- Drag-and-drop between columns\n- Filter by: assignee, label, priority, sprint\n\n### Task Card\n- Title, description (markdown), assignee, priority, labels\n- Sprint assignment, linked documents, linked code\n- Comments thread, activity log\n\n## Architecture\n\n```mermaid\ngraph TD\n    A[User drags card] --> B[Webview postMessage]\n    B --> C[Extension Host]\n    C --> D[TaskService.updateStatus]\n    D --> E[Local Store]\n    E --> F[SyncService.push]\n    F --> G[Broadcast to webviews]\n```\n\n## Non-Goals\n- Time tracking\n- Gantt charts (deferred to timeline view)\n- Burndown charts (deferred to v2)"
+		},
+		{
+			"id": "doc-prd-v2",
+			"title": "PRD v2 — Documentation & Diagrams",
+			"type": "prd",
+			"author": "user-001",
+			"status": "draft",
+			"linkedTasks": ["PRE-6"],
+			"createdAt": "2026-03-22T14:00:00Z",
+			"updatedAt": "2026-04-01T10:00:00Z",
+			"content": "# PRD v2 — Documentation & Diagrams\n\n**Status:** Draft\n**Author:** Alex Chen\n\n---\n\n## Overview\n\nEmbed a rich document editor inside PRendgame for PRDs, specs, and meeting notes.\n\n## Goals\n\n1. PMs can author requirements without leaving the IDE\n2. Documents are first-class objects linked to tasks and code\n3. AI agents can read documents to understand context\n\n## Document Types\n\n| Type | Template |\n|------|----------|\n| PRD | Overview, Goals, Requirements, Non-Goals |\n| User Story | Persona, Action, Outcome, Acceptance Criteria |\n| Technical Spec | Context, Approach, API, Data Model, Risks |\n| Meeting Notes | Date, Attendees, Decisions, Action Items |\n| ADR | Status, Context, Decision, Consequences |"
+		},
+		{
+			"id": "doc-prd-v3",
+			"title": "PRD v3 — AI-Native Integration (MCP)",
+			"type": "prd",
+			"author": "user-001",
+			"status": "draft",
+			"linkedTasks": ["PRE-9", "PRE-10"],
+			"createdAt": "2026-03-24T09:00:00Z",
+			"updatedAt": "2026-04-04T11:00:00Z",
+			"content": "# PRD v3 — AI-Native Integration\n\n**Status:** Draft\n\n## Overview\n\nPRendgame is NOT an AI agent. It is the project context layer that AI agents plug into via MCP and REST API.\n\n## MCP Tools\n\n```\nprendgame.tasks.list\nprendgame.tasks.get\nprendgame.tasks.create\nprendgame.tasks.update\nprendgame.tasks.transition\nprendgame.docs.list\nprendgame.docs.get\nprendgame.sprint.current\nprendgame.board.snapshot\n```\n\n## Example: Agent reads PRD, implements feature\n1. Engineer types \"implement this\" in their AI chat\n2. Agent calls prendgame.tasks.get to read task + linked PRD\n3. Agent writes code using acceptance criteria\n4. Agent calls prendgame.tasks.transition to move task to In Review"
+		},
+		{
+			"id": "doc-prd-v4",
+			"title": "PRD v4 — Cloud Sync & Collaboration",
+			"type": "prd",
+			"author": "user-001",
+			"status": "draft",
+			"linkedTasks": ["PRE-1", "PRE-2", "PRE-11", "PRE-12", "PRE-14"],
+			"createdAt": "2026-03-26T11:00:00Z",
+			"updatedAt": "2026-04-05T15:00:00Z",
+			"content": "# PRD v4 — Cloud Sync & Collaboration\n\n**Status:** Draft\n\n## Overview\n\nSupabase-backed cloud sync for team collaboration. Free tier is local-only; paid tier adds sync.\n\n## Data Model\n\n```mermaid\nerDiagram\n    ORGANIZATION ||--o{ PROJECT : has\n    PROJECT ||--o{ BOARD : has\n    BOARD ||--o{ TASK : contains\n    PROJECT ||--o{ DOCUMENT : has\n    PROJECT ||--o{ SPRINT : has\n    TASK ||--o{ COMMENT : has\n    USER ||--o{ TASK : assigned_to\n```"
+		},
+		{
+			"id": "doc-spec-auth",
+			"title": "Technical Spec — Authentication Architecture",
+			"type": "spec",
+			"author": "user-003",
+			"status": "approved",
+			"linkedTasks": ["PRE-1"],
+			"createdAt": "2026-03-27T10:00:00Z",
+			"updatedAt": "2026-03-30T14:00:00Z",
+			"content": "# Technical Spec — Authentication\n\n## Approach\nSupabase Auth with email/password + GitHub OAuth.\n\n## Flow\n1. User clicks 'Sign In' in status bar\n2. Extension opens browser for Supabase OAuth\n3. Redirect back to prendgame:// protocol handler\n4. Token stored in VS Code SecretStorage\n5. SyncService uses token for Supabase client"
+		}
+	]
+}

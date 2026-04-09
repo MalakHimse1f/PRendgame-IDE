@@ -1,0 +1,60 @@
+{
+	"entries": [
+		{
+			"timestamp": "2026-04-08T10:32:15Z",
+			"agent": "Claude Code",
+			"tool": "prendgame.tasks.get",
+			"params": { "id": "PRE-3" },
+			"result": "Returned task PRE-3: Build kanban board webview (In Progress)",
+			"duration": "45ms"
+		},
+		{
+			"timestamp": "2026-04-08T10:32:16Z",
+			"agent": "Claude Code",
+			"tool": "prendgame.docs.get",
+			"params": { "id": "doc-prd-v1" },
+			"result": "Returned PRD v1 — Core Task Management (2.4 KB)",
+			"duration": "38ms"
+		},
+		{
+			"timestamp": "2026-04-08T10:34:52Z",
+			"agent": "Claude Code",
+			"tool": "prendgame.tasks.transition",
+			"params": { "id": "PRE-3", "status": "in_review" },
+			"result": "Task PRE-3 moved from In Progress → In Review",
+			"duration": "62ms"
+		},
+		{
+			"timestamp": "2026-04-08T11:15:03Z",
+			"agent": "GitHub Copilot",
+			"tool": "prendgame.sprint.current",
+			"params": {},
+			"result": "Sprint 2 — Core UI (Apr 7–18). 3 in progress, 4 to do, 2 done.",
+			"duration": "51ms"
+		},
+		{
+			"timestamp": "2026-04-08T11:20:41Z",
+			"agent": "Gemini Code Assist",
+			"tool": "prendgame.tasks.list",
+			"params": { "assignee": "user-005", "sprint": "sprint-2" },
+			"result": "Returned 3 tasks for Sam Rivera in Sprint 2",
+			"duration": "44ms"
+		},
+		{
+			"timestamp": "2026-04-08T13:05:22Z",
+			"agent": "Claude Code",
+			"tool": "prendgame.board.snapshot",
+			"params": {},
+			"result": "Board snapshot: 4 backlog, 4 todo, 3 in_progress, 1 in_review, 2 done",
+			"duration": "78ms"
+		},
+		{
+			"timestamp": "2026-04-08T14:12:09Z",
+			"agent": "OpenAI Codex",
+			"tool": "prendgame.tasks.create",
+			"params": { "title": "Add keyboard shortcuts for board navigation", "priority": "medium", "assignee": "user-005" },
+			"result": "Created PRE-17: Add keyboard shortcuts for board navigation",
+			"duration": "95ms"
+		}
+	]
+}

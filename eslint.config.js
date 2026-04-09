@@ -124,12 +124,7 @@ export default tseslint.config(
 			'header/header': [
 				2,
 				'block',
-				[
-					'---------------------------------------------------------------------------------------------',
-					' *  Copyright (c) Microsoft Corporation. All rights reserved.',
-					' *  Licensed under the MIT License. See License.txt in the project root for license information.',
-					' *--------------------------------------------------------------------------------------------'
-				]
+				{ pattern: '---------------------------------------------------------------------------------------------\\n \\*  Copyright \\(c\\) (Microsoft Corporation|PRendgame)\\. All rights reserved\\.\\n \\*  Licensed under the MIT License\\. See License\\.txt in the project root for license information\\.\\n \\*--------------------------------------------------------------------------------------------' }
 			]
 		},
 	},

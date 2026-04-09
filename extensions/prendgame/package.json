@@ -1,0 +1,101 @@
+{
+	"name": "prendgame",
+	"displayName": "PRendgame — Agile Workstream Management",
+	"description": "Integrated kanban boards, document editor, sprint management, and AI-native MCP context layer — all inside your IDE.",
+	"version": "0.1.0",
+	"publisher": "prendgame",
+	"license": "MIT",
+	"engines": {
+		"vscode": "^1.100.0"
+	},
+	"categories": [
+		"Other"
+	],
+	"activationEvents": [
+		"onStartupFinished"
+	],
+	"main": "./src/extension.js",
+	"contributes": {
+		"viewsContainers": {
+			"activitybar": [
+				{
+					"id": "prendgame",
+					"title": "PRendgame",
+					"icon": "media/prendgame-icon.svg"
+				}
+			]
+		},
+		"views": {
+			"prendgame": [
+				{
+					"id": "prendgame.myTasks",
+					"name": "My Tasks"
+				},
+				{
+					"id": "prendgame.documents",
+					"name": "Documents"
+				},
+				{
+					"id": "prendgame.sprints",
+					"name": "Sprints"
+				},
+				{
+					"id": "prendgame.team",
+					"name": "Team"
+				}
+			]
+		},
+		"commands": [
+			{
+				"command": "prendgame.openBoard",
+				"title": "PRendgame: Open Board",
+				"icon": "$(project)"
+			},
+			{
+				"command": "prendgame.openDocument",
+				"title": "PRendgame: Open Document"
+			},
+			{
+				"command": "prendgame.openTaskDetail",
+				"title": "PRendgame: Open Task Detail"
+			},
+			{
+				"command": "prendgame.openSprintDashboard",
+				"title": "PRendgame: Open Sprint Dashboard"
+			},
+			{
+				"command": "prendgame.openMcpLog",
+				"title": "PRendgame: Open MCP Activity Log"
+			},
+			{
+				"command": "prendgame.newTask",
+				"title": "PRendgame: New Task",
+				"icon": "$(add)"
+			},
+			{
+				"command": "prendgame.newDocument",
+				"title": "PRendgame: New Document",
+				"icon": "$(new-file)"
+			}
+		],
+		"menus": {
+			"view/title": [
+				{
+					"command": "prendgame.openBoard",
+					"when": "view == prendgame.myTasks",
+					"group": "navigation"
+				},
+				{
+					"command": "prendgame.newTask",
+					"when": "view == prendgame.myTasks",
+					"group": "navigation"
+				},
+				{
+					"command": "prendgame.newDocument",
+					"when": "view == prendgame.documents",
+					"group": "navigation"
+				}
+			]
+		}
+	}
+}
