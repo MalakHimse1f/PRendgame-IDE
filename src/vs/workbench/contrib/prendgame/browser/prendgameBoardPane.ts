@@ -253,5 +253,6 @@ export class PRendgameBoardPane extends ViewPane {
 
 		makeBtn('Board', 'prendgame.openBoard');
 		makeBtn('Sprint', 'prendgame.openSprintDashboard');
+		makeBtn('MCP Log', 'prendgame.openMcpLog');
 	}
 }
