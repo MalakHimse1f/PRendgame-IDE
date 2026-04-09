@@ -5,7 +5,7 @@
 
 import { $, append, getWindow } from '../../../../base/browser/dom.js';
 import { T } from './prendgameTheme.js';
-import { getDocs, getLinkedTasks, addLink, isDocLocked, findTask, findTaskGroup, getGroups, PRIORITY_COLORS, PRIORITY_LABELS, TASK_STATUS_COLORS, TASK_STATUS_LABELS, DOC_TYPE_COLORS as TYPE_COLORS, DOC_TYPE_LABELS as TYPE_LABELS, DOC_STATUSES as STATUSES, DOC_STATUS_LABELS as STATUS_LABELS, DOC_STATUS_COLORS as STATUS_COLORS, IDoc } from './prendgameData.js';
+import { getDocs, getMembers, getLinkedTasks, addLink, isDocLocked, findTask, findTaskGroup, getGroups, getDueDateStyle, updateDoc, PRIORITY_COLORS, PRIORITY_LABELS, TASK_STATUS_COLORS, TASK_STATUS_LABELS, DOC_TYPE_COLORS as TYPE_COLORS, DOC_TYPE_LABELS as TYPE_LABELS, DOC_STATUSES as STATUSES, DOC_STATUS_LABELS as STATUS_LABELS, DOC_STATUS_COLORS as STATUS_COLORS, IDoc } from './prendgameData.js';
 import { groupItemsBy, renderCollapsibleGroup } from './prendgameViewUtils.js';
 
 export function renderMarkdownToDOM(parent: HTMLElement, text: string): void {
@@ -57,6 +57,8 @@ export function renderDocsContent(root: HTMLElement, commandService: { executeCo
 	let activeSortField = '';
 	let sortAscending = true;
 	let activeView: 'list' | 'board' | 'cards' = 'list';
+	let activeGroupBy = 'none';
+	let searchQuery = '';
 	let activeDocId: string | null = null;
 
 	// Containers for list and detail (swap visibility)
@@ -80,6 +82,10 @@ export function renderDocsContent(root: HTMLElement, commandService: { executeCo
 	// == Filtered/sorted docs helper ==========================================
 	function getFilteredDocs(): IDoc[] {
 		let result = [...docs];
+		if (searchQuery) {
+			const q = searchQuery.toLowerCase();
+			result = result.filter(d => d.id.toLowerCase().includes(q) || d.title.toLowerCase().includes(q) || d.content.toLowerCase().includes(q));
+		}
 		if (activeFilter) { result = result.filter(d => d.type === activeFilter); }
 		if (activeStatusFilter) { result = result.filter(d => d.status === activeStatusFilter); }
 		if (activeOwnerFilter) { result = result.filter(d => d.owner === activeOwnerFilter); }
@@ -96,6 +102,39 @@ export function renderDocsContent(root: HTMLElement, commandService: { executeCo
 
 	// == LIST =============================================================
 	function renderList() {
+		// Search input
+		const searchWrap = append(listContainer, $('div'));
+		searchWrap.style.cssText = `padding:10px 20px;border-bottom:1px solid ${T.border};`;
+		const searchInput = append(searchWrap, $('input'));
+		(searchInput as HTMLInputElement).type = 'text';
+		(searchInput as HTMLInputElement).placeholder = 'Filter documents\u2026';
+		searchInput.style.cssText = `width:100%;box-sizing:border-box;background:${T.surface};border:1px solid ${T.border};color:${T.text};padding:7px 12px;border-radius:${T.radius};font-size:12px;font-family:inherit;outline:none;transition:border-color 0.15s;`;
+		(searchInput as HTMLInputElement).value = searchQuery;
+		searchInput.addEventListener('focus', () => { searchInput.style.borderColor = T.accent; });
+		searchInput.addEventListener('blur', () => { searchInput.style.borderColor = T.border; });
+		searchInput.addEventListener('input', () => { searchQuery = (searchInput as HTMLInputElement).value; rebuildList(); });
+
+		// Group by pills
+		const groupByRow = append(listContainer, $('div'));
+		groupByRow.style.cssText = `display:flex;align-items:center;gap:8px;padding:8px 20px;border-bottom:1px solid ${T.border};`;
+		const groupByLabel = append(groupByRow, $('span'));
+		groupByLabel.style.cssText = `font-size:11px;color:${T.textFaint};`;
+		groupByLabel.textContent = 'Group by';
+		const groupByOptions = ['none', 'status', 'owner', 'priority'];
+		const groupByLabelsMap: Record<string, string> = { none: 'None', status: 'Status', owner: 'Owner', priority: 'Priority' };
+		for (const opt of groupByOptions) {
+			const btn = append(groupByRow, $('span'));
+			const isActive = activeGroupBy === opt;
+			btn.style.cssText = `font-size:11px;padding:3px 10px;border-radius:${T.radiusPill};cursor:pointer;font-weight:500;transition:all 0.12s;background:${isActive ? T.accent : T.accent + '15'};color:${isActive ? '#fff' : T.accent};`;
+			btn.textContent = groupByLabelsMap[opt] || opt;
+			btn.addEventListener('click', () => {
+				if (activeGroupBy === opt) { return; }
+				activeGroupBy = opt;
+				if (opt !== 'none' && activeView === 'list') { activeView = 'board'; }
+				rebuildList();
+			});
+		}
+
 		// View switcher
 		const viewRow = append(listContainer, $('div'));
 		viewRow.style.cssText = `display:flex;align-items:center;gap:0;padding:8px 20px;border-bottom:1px solid ${T.border};`;
@@ -205,7 +244,7 @@ export function renderDocsContent(root: HTMLElement, commandService: { executeCo
 		btn.addEventListener('mouseleave', () => { btn.style.color = T.textMuted; btn.style.borderColor = T.border; btn.style.background = ''; });
 		btn.addEventListener('click', () => {
 			const id = `doc-new-${Date.now()}`;
-			docs.unshift({ id, title: 'Untitled Document', type: 'prd', status: 'draft', priority: 'medium', owner: 'Alex Chen', ownerInitials: 'AC', ownerColor: '#6366f1', tasksTotal: 0, tasksDone: 0, updatedAt: 'Just now', content: '## Overview\n\nDescribe the purpose of this document.\n\n## Goals\n\n1. \n2. \n3. \n' });
+			docs.unshift({ id, title: 'Untitled Document', type: 'prd', status: 'draft', priority: 'medium', owner: 'Alex Chen', ownerInitials: 'AC', ownerColor: '#6366f1', tasksTotal: 0, tasksDone: 0, updatedAt: 'Just now', dueDate: '', content: '## Overview\n\nDescribe the purpose of this document.\n\n## Goals\n\n1. \n2. \n3. \n' });
 			showDetail(id);
 		});
 	}
@@ -253,19 +292,42 @@ export function renderDocsContent(root: HTMLElement, commandService: { executeCo
 
 	// -- Board view -----------------------------------------------------------
 	function renderBoardView(filtered: IDoc[]) {
-		const viewGroups = groupItemsBy(filtered, 'status', STATUS_LABELS, STATUS_COLORS, STATUSES);
+		let viewGroups;
+		if (activeGroupBy === 'owner') {
+			const ownerLabels: Record<string, string> = {};
+			const ownerColors: Record<string, string> = {};
+			for (const d of docs) { ownerLabels[d.owner] = d.owner; ownerColors[d.owner] = d.ownerColor; }
+			viewGroups = groupItemsBy(filtered, 'owner', ownerLabels, ownerColors);
+		} else if (activeGroupBy === 'priority') {
+			viewGroups = groupItemsBy(filtered, 'priority', PRIORITY_LABELS, PRIORITY_COLORS, ['critical', 'high', 'medium', 'low']);
+		} else {
+			viewGroups = groupItemsBy(filtered, 'status', STATUS_LABELS, STATUS_COLORS, STATUSES);
+		}
 		const boardWrap = append(listContainer, $('div'));
 		boardWrap.style.cssText = 'padding:8px 0;';
 
+		let dragDocId: string | null = null;
+
 		for (const vg of viewGroups) {
+			const isStatusGrouping = activeGroupBy === 'none' || activeGroupBy === 'status';
 			renderCollapsibleGroup<IDoc>({
 				container: boardWrap,
 				group: vg,
 				collapsed: false,
 				theme: T,
 				renderItem: (parent, d) => {
+					const docLocked = isDocLocked(d.id);
 					const row = append(parent, $('div'));
 					row.style.cssText = `display:flex;align-items:center;gap:8px;padding:6px 20px 6px 42px;cursor:pointer;transition:background 0.1s;border-radius:${T.radiusSm};margin:0 4px;`;
+					if (isStatusGrouping && !docLocked) {
+						row.draggable = true;
+						row.addEventListener('dragstart', (e) => {
+							dragDocId = d.id;
+							row.style.opacity = '0.3';
+							if ((e as DragEvent).dataTransfer) { (e as DragEvent).dataTransfer!.effectAllowed = 'move'; (e as DragEvent).dataTransfer!.setData('text/plain', d.id); }
+						});
+						row.addEventListener('dragend', () => { dragDocId = null; row.style.opacity = '1'; });
+					}
 					row.addEventListener('mouseenter', () => { row.style.background = T.surfaceHover; });
 					row.addEventListener('mouseleave', () => { row.style.background = ''; });
 					row.addEventListener('click', () => { showDetail(d.id); });
@@ -283,6 +345,20 @@ export function renderDocsContent(root: HTMLElement, commandService: { executeCo
 					av.style.cssText = `display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;font-size:7px;font-weight:600;color:#fff;background:${d.ownerColor};flex-shrink:0;`;
 					av.textContent = d.ownerInitials;
 				},
+				dropConfig: isStatusGrouping ? {
+					showDropZone: true,
+					onDrop: (groupKey) => {
+						if (dragDocId) {
+							const targetDoc = docs.find(dd => dd.id === dragDocId);
+							if (targetDoc) {
+								updateDoc(dragDocId, 'status', groupKey);
+								targetDoc.status = groupKey;
+							}
+							dragDocId = null;
+							rebuildList();
+						}
+					},
+				} : undefined,
 			});
 		}
 	}
@@ -444,12 +520,53 @@ export function renderDocsContent(root: HTMLElement, commandService: { executeCo
 			setTimeout(() => w.document.addEventListener('click', closeFn), 0);
 		});
 
-		const ownerEl = append(metaRow, $('span'));
-		ownerEl.style.cssText = `display:inline-flex;align-items:center;gap:4px;font-size:11px;color:${T.textMuted};`;
-		const ownerAv = append(ownerEl, $('span'));
-		ownerAv.style.cssText = `display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;font-size:7px;font-weight:600;color:#fff;background:${doc.ownerColor};`;
-		ownerAv.textContent = doc.ownerInitials;
-		ownerEl.appendChild(document.createTextNode(doc.owner));
+		const assigneeWrap = append(metaRow, $('div'));
+		assigneeWrap.style.cssText = 'position:relative;';
+		const assigneeBtn = append(assigneeWrap, $('span'));
+		assigneeBtn.style.cssText = `display:inline-flex;align-items:center;gap:4px;font-size:11px;color:${T.text};cursor:pointer;padding:2px 4px;border-radius:${T.radiusSm};transition:background 0.1s;`;
+		function renderDocAssignee() {
+			assigneeBtn.textContent = '';
+			const av2 = append(assigneeBtn, $('span'));
+			av2.style.cssText = `display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;font-size:7px;font-weight:600;color:#fff;background:${doc.ownerColor};`;
+			av2.textContent = doc.ownerInitials;
+			assigneeBtn.appendChild(document.createTextNode(' ' + doc.owner + ' \u25BE'));
+		}
+		renderDocAssignee();
+		assigneeBtn.addEventListener('mouseenter', () => { if (!locked) { assigneeBtn.style.background = T.surfaceHover; } });
+		assigneeBtn.addEventListener('mouseleave', () => { assigneeBtn.style.background = ''; });
+		let assigneeDD: HTMLElement | null = null;
+		assigneeBtn.addEventListener('click', () => {
+			if (locked) { return; }
+			if (assigneeDD) { assigneeDD.remove(); assigneeDD = null; return; }
+			const dd = append(assigneeWrap, $('div'));
+			assigneeDD = dd;
+			dd.style.cssText = `position:absolute;top:100%;left:0;margin-top:4px;background:${T.surface};border:1px solid ${T.border};border-radius:${T.radius};padding:4px 0;z-index:1000;min-width:180px;box-shadow:0 4px 12px rgba(0,0,0,0.3);`;
+			for (const m of getMembers()) {
+				const opt = append(dd, $('div'));
+				const isActive = doc.ownerInitials === m.initials;
+				opt.style.cssText = `display:flex;align-items:center;gap:8px;padding:5px 12px;cursor:pointer;font-size:11px;color:${isActive ? T.text : T.textMuted};transition:background 0.1s;`;
+				opt.addEventListener('mouseenter', () => { opt.style.background = T.surfaceHover; });
+				opt.addEventListener('mouseleave', () => { opt.style.background = ''; });
+				const oav = append(opt, $('span'));
+				oav.style.cssText = `display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;font-size:7px;font-weight:600;color:#fff;background:${m.color};`;
+				oav.textContent = m.initials;
+				const ol = append(opt, $('span'));
+				ol.textContent = m.name;
+				if (isActive) { ol.style.fontWeight = '600'; }
+				const or2 = append(opt, $('span'));
+				or2.style.cssText = `margin-left:auto;font-size:10px;color:${T.textFaint};`;
+				or2.textContent = m.role;
+				opt.addEventListener('click', (e) => {
+					e.stopPropagation();
+					doc.owner = m.name; doc.ownerInitials = m.initials; doc.ownerColor = m.color;
+					renderDocAssignee();
+					dd.remove(); assigneeDD = null;
+				});
+			}
+			const w = getWindow(assigneeWrap);
+			const closeFn = (e: Event) => { if (!assigneeWrap.contains(e.target as Node)) { dd.remove(); assigneeDD = null; w.document.removeEventListener('click', closeFn); } };
+			setTimeout(() => w.document.addEventListener('click', closeFn), 0);
+		});
 
 		if (doc.tasksTotal > 0) {
 			const tp = append(metaRow, $('span'));
@@ -549,6 +666,38 @@ export function renderDocsContent(root: HTMLElement, commandService: { executeCo
 		const sprintVal = append(attrsSection, $('span'));
 		sprintVal.style.cssText = `font-size:11px;color:${T.text};`;
 		sprintVal.textContent = 'Sprint 2';
+
+		// Due Date
+		const dueLbl = append(attrsSection, $('span'));
+		dueLbl.style.cssText = `font-size:11px;color:${T.textFaint};`;
+		dueLbl.textContent = 'Due Date';
+		const dueVal = append(attrsSection, $('span'));
+		const ds = getDueDateStyle(doc.dueDate);
+		dueVal.style.cssText = `font-size:11px;color:${ds.color};cursor:${locked ? 'default' : 'text'};padding:2px 4px;border-radius:${T.radiusSm};transition:background 0.1s;`;
+		dueVal.textContent = ds.label || 'No due date';
+		if (!locked) {
+			dueVal.addEventListener('mouseenter', () => { dueVal.style.background = T.surfaceHover; });
+			dueVal.addEventListener('mouseleave', () => { dueVal.style.background = ''; });
+			dueVal.addEventListener('click', () => {
+				const input = document.createElement('input');
+				input.type = 'text';
+				input.value = doc.dueDate || '';
+				input.placeholder = 'YYYY-MM-DD';
+				input.style.cssText = `width:120px;box-sizing:border-box;background:${T.surface};border:1px solid ${T.accent};color:${T.text};padding:2px 6px;border-radius:${T.radiusSm};font-size:11px;font-family:inherit;outline:none;`;
+				dueVal.textContent = '';
+				dueVal.appendChild(input);
+				input.focus();
+				input.select();
+				const finish = () => {
+					doc.dueDate = input.value.trim();
+					const newDs = getDueDateStyle(doc.dueDate);
+					dueVal.style.color = newDs.color;
+					dueVal.textContent = newDs.label || 'No due date';
+				};
+				input.addEventListener('blur', finish);
+				input.addEventListener('keydown', (ke: Event) => { if ((ke as KeyboardEvent).key === 'Enter') { (ke.target as HTMLInputElement).blur(); } if ((ke as KeyboardEvent).key === 'Escape') { (ke.target as HTMLInputElement).value = doc.dueDate; (ke.target as HTMLInputElement).blur(); } });
+			});
+		}
 
 		// Target Release (editable text)
 		const relLbl = append(attrsSection, $('span'));
@@ -787,6 +936,72 @@ export function renderDocsContent(root: HTMLElement, commandService: { executeCo
 			const closeFn = (e: Event) => { if (!pickerWrap.contains(e.target as Node)) { pickerWrap.remove(); w.document.removeEventListener('click', closeFn); } };
 			setTimeout(() => w.document.addEventListener('click', closeFn), 0);
 		});
+
+		// Comments (review-style)
+		const commentsSection = append(detailContainer, $('div'));
+		commentsSection.style.cssText = `padding:14px 20px;border-top:1px solid ${T.border};`;
+
+		const mockDocComments: { author: string; initials: string; color: string; text: string; time: string }[] = [
+			{ author: 'Jordan Park', initials: 'JP', color: '#06b6d4', text: 'Requirements 1-3 are clear. Can we add acceptance criteria for the edge case where no tasks exist?', time: '2 days ago' },
+			{ author: 'Alex Chen', initials: 'AC', color: '#6366f1', text: 'Good point. Updated the Requirements section with an empty-state criterion.', time: 'Yesterday' },
+		];
+
+		const commentsTitle = append(commentsSection, $('div'));
+		commentsTitle.style.cssText = `font-size:11px;font-weight:600;color:${T.textFaint};text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px;`;
+		commentsTitle.textContent = `Comments (${mockDocComments.length})`;
+
+		const commentsList = append(commentsSection, $('div'));
+
+		function renderDocComment(c: { author: string; initials: string; color: string; text: string; time: string }) {
+			const entry = append(commentsList, $('div'));
+			entry.style.cssText = `margin-bottom:12px;`;
+			const header = append(entry, $('div'));
+			header.style.cssText = `display:flex;align-items:center;gap:6px;margin-bottom:3px;`;
+			const cav = append(header, $('span'));
+			cav.style.cssText = `display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;font-size:7px;font-weight:600;color:#fff;background:${c.color};flex-shrink:0;`;
+			cav.textContent = c.initials;
+			const cname = append(header, $('span'));
+			cname.style.cssText = `font-size:12px;font-weight:500;color:${T.text};`;
+			cname.textContent = c.author;
+			const ctime = append(header, $('span'));
+			ctime.style.cssText = `font-size:10px;color:${T.textFaint};margin-left:auto;`;
+			ctime.textContent = c.time;
+			const cbody = append(entry, $('div'));
+			cbody.style.cssText = `font-size:12px;color:${T.textMuted};line-height:1.5;padding-left:24px;`;
+			cbody.textContent = c.text;
+		}
+
+		for (const c of mockDocComments) { renderDocComment(c); }
+
+		// Add comment input (always enabled, even when locked)
+		const addCommentRow = append(commentsSection, $('div'));
+		addCommentRow.style.cssText = `display:flex;gap:8px;margin-top:8px;`;
+		const commentInput = document.createElement('input');
+		commentInput.type = 'text';
+		commentInput.placeholder = 'Add a comment...';
+		commentInput.style.cssText = `flex:1;background:${T.surface};border:1px solid ${T.border};color:${T.text};padding:6px 10px;border-radius:${T.radiusSm};font-size:12px;font-family:inherit;outline:none;box-sizing:border-box;`;
+		commentInput.addEventListener('focus', () => { commentInput.style.borderColor = T.accent; });
+		commentInput.addEventListener('blur', () => { commentInput.style.borderColor = T.border; });
+		addCommentRow.appendChild(commentInput);
+
+		const sendBtn = append(addCommentRow, $('span'));
+		sendBtn.style.cssText = `padding:6px 14px;border-radius:${T.radiusSm};background:${T.accent};color:#fff;font-size:11px;font-weight:500;cursor:pointer;transition:opacity 0.12s;flex-shrink:0;`;
+		sendBtn.textContent = 'Send';
+		sendBtn.addEventListener('mouseenter', () => { sendBtn.style.opacity = '0.85'; });
+		sendBtn.addEventListener('mouseleave', () => { sendBtn.style.opacity = '1'; });
+
+		function addDocComment() {
+			const text = commentInput.value.trim();
+			if (!text) { return; }
+			const newComment = { author: 'Jordan Park', initials: 'JP', color: '#06b6d4', text, time: 'Just now' };
+			mockDocComments.push(newComment);
+			renderDocComment(newComment);
+			commentsTitle.textContent = `Comments (${mockDocComments.length})`;
+			commentInput.value = '';
+		}
+
+		sendBtn.addEventListener('click', addDocComment);
+		commentInput.addEventListener('keydown', (ke) => { if ((ke as KeyboardEvent).key === 'Enter') { addDocComment(); } });
 
 		// Attachments
 		const attachSection = append(detailContainer, $('div'));

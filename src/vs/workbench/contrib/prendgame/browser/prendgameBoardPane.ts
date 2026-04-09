@@ -5,7 +5,7 @@
 
 import { $, append, getWindow } from '../../../../base/browser/dom.js';
 import { T } from './prendgameTheme.js';
-import { getGroups, getMembers, getDocs, findTask, findTaskGroup, getDueDateStyle, getLinkedDocs, getLinkedTasks, addLink, getReadyForDevDocs, createTasksFromDoc, PRIORITY_COLORS, PRIORITY_LABELS, TASK_STATUS_COLORS as STATUS_COLORS, TASK_STATUS_LABELS, DOC_TYPE_COLORS, DOC_TYPE_LABELS, DOC_STATUS_COLORS, DOC_STATUS_LABELS, ITask, ISubtask, IDoc } from './prendgameData.js';
+import { getGroups, getMembers, getDocs, findTask, findTaskGroup, getDueDateStyle, getLinkedDocs, getLinkedTasks, addLink, getReadyForDevDocs, createTasksFromDoc, PRIORITY_COLORS, PRIORITY_LABELS, TASK_STATUS_COLORS as STATUS_COLORS, TASK_STATUS_LABELS, TASK_STATUSES, DOC_TYPE_COLORS, DOC_TYPE_LABELS, DOC_STATUS_COLORS, DOC_STATUS_LABELS, ITask, ISubtask, IDoc } from './prendgameData.js';
 import { renderMarkdownToDOM } from './prendgameDocsPane.js';
 import { groupItemsBy, renderCollapsibleGroup, IViewGroup } from './prendgameViewUtils.js';
 
@@ -847,23 +847,7 @@ export function renderBoardContent(root: HTMLElement, commandService: { executeC
 	searchInput.addEventListener('focus', () => { searchInput.style.borderColor = T.accent; });
 	searchInput.addEventListener('blur', () => { searchInput.style.borderColor = T.border; });
 
-	searchInput.addEventListener('input', () => {
-		const q = searchInput.value.toLowerCase().trim();
-		for (const entry of taskRows) {
-			const tt = entry.task;
-			const match = !q
-				|| tt.id.toLowerCase().includes(q)
-				|| tt.title.toLowerCase().includes(q)
-				|| tt.tags.some(l => l.toLowerCase().includes(q))
-				|| tt.initials.toLowerCase().includes(q)
-				|| tt.priority.toLowerCase().includes(q);
-			entry.el.style.display = match ? '' : 'none';
-		}
-		for (const b of badges) {
-			const visibleCount = taskRows.filter(r => r.groupId === b.groupId && r.el.style.display !== 'none').length;
-			b.el.textContent = String(visibleCount);
-		}
-	});
+	searchInput.addEventListener('input', () => { rebuildBoard(); });
 
 	// == Group by =============================================================
 	let activeGroupBy = 'status';
@@ -888,6 +872,75 @@ export function renderBoardContent(root: HTMLElement, commandService: { executeC
 		});
 	}
 
+	// == Filter row (status, assignee, sort) ===================================
+	let activeStatusFilter = '';
+	let activeAssigneeFilter = '';
+	let activeSortField = '';
+	let sortAscending = true;
+
+	const filterRow = append(boardContainer, $('div'));
+	filterRow.style.cssText = `display:flex;gap:6px;padding:8px 20px;border-bottom:1px solid ${T.border};flex-wrap:wrap;align-items:center;`;
+
+	function rebuildFilterRow() {
+		filterRow.textContent = '';
+
+		// Status filter
+		const statusSelect = append(filterRow, $('select'));
+		statusSelect.style.cssText = `font-size:11px;padding:3px 6px;border-radius:${T.radiusSm};background:${T.surface};border:1px solid ${T.border};color:${T.textMuted};cursor:pointer;outline:none;`;
+		const statusDefault = append(statusSelect, $('option'));
+		statusDefault.textContent = 'Status';
+		(statusDefault as HTMLOptionElement).value = '';
+		for (const s of TASK_STATUSES) {
+			const opt = append(statusSelect, $('option'));
+			opt.textContent = TASK_STATUS_LABELS[s] || s;
+			(opt as HTMLOptionElement).value = s;
+		}
+		(statusSelect as HTMLSelectElement).value = activeStatusFilter;
+		statusSelect.addEventListener('change', () => { activeStatusFilter = (statusSelect as HTMLSelectElement).value; rebuildBoard(); });
+
+		// Assignee filter
+		const assigneeSelect = append(filterRow, $('select'));
+		assigneeSelect.style.cssText = `font-size:11px;padding:3px 6px;border-radius:${T.radiusSm};background:${T.surface};border:1px solid ${T.border};color:${T.textMuted};cursor:pointer;outline:none;`;
+		const assigneeDefault = append(assigneeSelect, $('option'));
+		assigneeDefault.textContent = 'Assignee';
+		(assigneeDefault as HTMLOptionElement).value = '';
+		for (const m of members) {
+			const opt = append(assigneeSelect, $('option'));
+			opt.textContent = m.name;
+			(opt as HTMLOptionElement).value = m.initials;
+		}
+		(assigneeSelect as HTMLSelectElement).value = activeAssigneeFilter;
+		assigneeSelect.addEventListener('change', () => { activeAssigneeFilter = (assigneeSelect as HTMLSelectElement).value; rebuildBoard(); });
+
+		// Sort
+		const sortSelect = append(filterRow, $('select'));
+		sortSelect.style.cssText = `font-size:11px;padding:3px 6px;border-radius:${T.radiusSm};background:${T.surface};border:1px solid ${T.border};color:${T.textMuted};cursor:pointer;outline:none;margin-left:auto;`;
+		const sortOptions = [['', 'Sort by...'], ['title', 'Title'], ['dueDate', 'Due Date'], ['priority', 'Priority']];
+		for (const [val, label] of sortOptions) {
+			const opt = append(sortSelect, $('option'));
+			opt.textContent = label + (activeSortField === val ? (sortAscending ? ' \u2191' : ' \u2193') : '');
+			(opt as HTMLOptionElement).value = val;
+		}
+		(sortSelect as HTMLSelectElement).value = activeSortField;
+		sortSelect.addEventListener('change', () => {
+			const newField = (sortSelect as HTMLSelectElement).value;
+			if (newField === activeSortField) { sortAscending = !sortAscending; }
+			else { activeSortField = newField; sortAscending = true; }
+			rebuildBoard();
+		});
+
+		// Clear
+		if (activeStatusFilter || activeAssigneeFilter || activeSortField) {
+			const clearBtn = append(filterRow, $('span'));
+			clearBtn.style.cssText = `font-size:10px;padding:3px 8px;border-radius:${T.radiusPill};cursor:pointer;color:${T.textFaint};transition:color 0.12s;`;
+			clearBtn.textContent = '\u2715 Clear';
+			clearBtn.addEventListener('mouseenter', () => { clearBtn.style.color = T.text; });
+			clearBtn.addEventListener('mouseleave', () => { clearBtn.style.color = T.textFaint; });
+			clearBtn.addEventListener('click', () => { activeStatusFilter = ''; activeAssigneeFilter = ''; activeSortField = ''; rebuildFilterRow(); rebuildBoard(); });
+		}
+	}
+	rebuildFilterRow();
+
 	// == Dynamic board content (rebuilt on group-by change) ====================
 	const dynamicContainer = append(boardContainer, $('div'));
 
@@ -906,10 +959,25 @@ export function renderBoardContent(root: HTMLElement, commandService: { executeC
 			groupByBtns[i].style.color = isActive ? '#fff' : T.accent;
 		}
 
+		// Build filtered task list
+		let allTasks: ITask[] = [];
+		for (const g of groups) { allTasks.push(...g.tasks); }
+		if (activeStatusFilter) { allTasks = allTasks.filter(t => findTaskGroup(t.id) === activeStatusFilter); }
+		if (activeAssigneeFilter) { allTasks = allTasks.filter(t => t.initials === activeAssigneeFilter); }
+		// Also apply search filter
+		const q = searchInput.value.toLowerCase().trim();
+		if (q) { allTasks = allTasks.filter(t => t.id.toLowerCase().includes(q) || t.title.toLowerCase().includes(q) || t.tags.some(tg => tg.toLowerCase().includes(q)) || t.initials.toLowerCase().includes(q) || t.priority.toLowerCase().includes(q)); }
+		if (activeSortField) {
+			allTasks.sort((a, b) => {
+				const va = String(Object.getOwnPropertyDescriptor(a, activeSortField)?.value ?? '').toLowerCase();
+				const vb = String(Object.getOwnPropertyDescriptor(b, activeSortField)?.value ?? '').toLowerCase();
+				const cmp = va < vb ? -1 : va > vb ? 1 : 0;
+				return sortAscending ? cmp : -cmp;
+			});
+		}
+
 		// Build view groups based on activeGroupBy
 		let viewGroups: IViewGroup<ITask>[];
-		const allTasks: ITask[] = [];
-		for (const g of groups) { allTasks.push(...g.tasks); }
 
 		if (activeGroupBy === 'assignee') {
 			const memberLabels: Record<string, string> = {};
