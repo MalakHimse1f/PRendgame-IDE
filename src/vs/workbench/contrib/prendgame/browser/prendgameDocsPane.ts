@@ -100,247 +100,248 @@ export class PRendgameDocsPane extends ViewPane {
 
 	protected override renderBody(container: HTMLElement): void {
 		super.renderBody(container);
-
 		const root = append(container, $('div'));
 		root.style.cssText = `overflow-y:auto;height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;-webkit-font-smoothing:antialiased;`;
+		renderDocsContent(root, this.commandService);
+	}
+}
 
-		const docs = getInitialDocs();
-		const commandService = this.commandService;
+export function renderDocsContent(root: HTMLElement, commandService: { executeCommand(id: string, ...args: unknown[]): unknown }): void {
+	const docs = getInitialDocs();
 
-		// State
-		let activeFilter = '';
-		let activeDocId: string | null = null;
+	// State
+	let activeFilter = '';
+	let activeDocId: string | null = null;
 
-		// Containers for list and detail (swap visibility)
-		const listContainer = append(root, $('div'));
-		const detailContainer = append(root, $('div'));
+	// Containers for list and detail (swap visibility)
+	const listContainer = append(root, $('div'));
+	const detailContainer = append(root, $('div'));
+	detailContainer.style.display = 'none';
+
+	function showList() {
+		activeDocId = null;
+		listContainer.style.display = '';
 		detailContainer.style.display = 'none';
+	}
 
-		function showList() {
-			activeDocId = null;
-			listContainer.style.display = '';
-			detailContainer.style.display = 'none';
-		}
+	function showDetail(docId: string) {
+		activeDocId = docId;
+		listContainer.style.display = 'none';
+		detailContainer.style.display = '';
+		renderDetail();
+	}
 
-		function showDetail(docId: string) {
-			activeDocId = docId;
-			listContainer.style.display = 'none';
-			detailContainer.style.display = '';
-			renderDetail();
-		}
+	// == LIST =============================================================
+	function renderList() {
+		// Filter pills
+		const filterRow = append(listContainer, $('div'));
+		filterRow.style.cssText = `display:flex;gap:6px;padding:8px 20px;border-bottom:1px solid ${T.border};flex-wrap:wrap;align-items:center;`;
 
-		// == LIST =============================================================
-		function renderList() {
-			// Filter pills
-			const filterRow = append(listContainer, $('div'));
-			filterRow.style.cssText = `display:flex;gap:6px;padding:8px 20px;border-bottom:1px solid ${T.border};flex-wrap:wrap;align-items:center;`;
-
-			function makePill(label: string, filterType: string) {
-				const pill = append(filterRow, $('span'));
-				const isActive = activeFilter === filterType;
-				const tc = filterType ? (TYPE_COLORS[filterType] || '#666') : T.accent;
-				pill.style.cssText = `font-size:11px;padding:3px 10px;border-radius:${T.radiusPill};cursor:pointer;font-weight:500;transition:all 0.12s;background:${isActive ? tc : tc + '15'};color:${isActive ? '#fff' : tc};`;
-				pill.textContent = label;
-				pill.addEventListener('click', () => {
-					activeFilter = filterType;
-					rebuildList();
-				});
-			}
-
-			makePill('All', '');
-			const types = [...new Set(docs.map(d => d.type))];
-			for (const type of types) { makePill(TYPE_LABELS[type] || type, type); }
-
-			// Doc rows container
-			const rowsContainer = append(listContainer, $('div'));
-
-			for (const doc of docs) {
-				if (activeFilter && doc.type !== activeFilter) { continue; }
-
-				const row = append(rowsContainer, $('div'));
-				row.style.cssText = `display:flex;align-items:center;gap:8px;padding:8px 20px;cursor:pointer;transition:background 0.1s;border-bottom:1px solid ${T.borderSubtle};`;
-				row.addEventListener('mouseenter', () => { row.style.background = T.surfaceHover; });
-				row.addEventListener('mouseleave', () => { row.style.background = ''; });
-				row.addEventListener('click', () => { showDetail(doc.id); });
-
-				const tc = TYPE_COLORS[doc.type] || '#666';
-				const badge = append(row, $('span'));
-				badge.style.cssText = `font-size:9px;font-weight:600;padding:2px 6px;border-radius:3px;background:${tc}20;color:${tc};text-transform:uppercase;letter-spacing:0.04em;white-space:nowrap;min-width:32px;text-align:center;`;
-				badge.textContent = TYPE_LABELS[doc.type] || doc.type;
-
-				const info = append(row, $('div'));
-				info.style.cssText = 'flex:1;min-width:0;';
-				const title = append(info, $('div'));
-				title.style.cssText = `font-size:13px;color:${T.text};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:-0.01em;`;
-				title.textContent = doc.title;
-				const meta = append(info, $('div'));
-				meta.style.cssText = `font-size:11px;color:${T.textFaint};display:flex;align-items:center;gap:6px;margin-top:1px;`;
-				const sc = STATUS_COLORS[doc.status] || '#666';
-				const dot = append(meta, $('span'));
-				dot.style.cssText = `width:5px;height:5px;border-radius:50%;background:${sc};`;
-				const sl = append(meta, $('span'));
-				sl.textContent = STATUS_LABELS[doc.status] || doc.status;
-				const upd = append(meta, $('span'));
-				upd.textContent = `\u00B7 ${doc.updatedAt}`;
-				if (doc.tasksTotal > 0) {
-					const p = append(meta, $('span'));
-					p.style.cssText = `color:${doc.tasksDone === doc.tasksTotal ? '#22c55e' : T.textFaint};`;
-					p.textContent = `\u00B7 ${doc.tasksDone}/${doc.tasksTotal} tasks`;
-				}
-
-				const av = append(row, $('span'));
-				av.style.cssText = `display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;font-size:8px;font-weight:600;color:#fff;flex-shrink:0;background:${doc.ownerColor};`;
-				av.textContent = doc.ownerInitials;
-			}
-
-			// New doc button
-			const wrap = append(listContainer, $('div'));
-			wrap.style.cssText = 'padding:12px 20px;';
-			const btn = append(wrap, $('div'));
-			btn.style.cssText = `display:flex;align-items:center;justify-content:center;padding:7px;border-radius:${T.radius};border:1px dashed ${T.border};cursor:pointer;font-size:11px;font-weight:500;color:${T.textMuted};transition:all 0.15s;`;
-			btn.textContent = '+ New Document';
-			btn.addEventListener('mouseenter', () => { btn.style.color = T.text; btn.style.borderColor = T.accent; btn.style.background = T.surfaceHover; });
-			btn.addEventListener('mouseleave', () => { btn.style.color = T.textMuted; btn.style.borderColor = T.border; btn.style.background = ''; });
-			btn.addEventListener('click', () => {
-				const id = `doc-new-${Date.now()}`;
-				docs.unshift({ id, title: 'Untitled Document', type: 'prd', status: 'draft', owner: 'Alex Chen', ownerInitials: 'AC', ownerColor: '#6366f1', tasksTotal: 0, tasksDone: 0, updatedAt: 'Just now', content: '## Overview\n\nDescribe the purpose of this document.\n\n## Goals\n\n1. \n2. \n3. \n' });
-				showDetail(id);
+		function makePill(label: string, filterType: string) {
+			const pill = append(filterRow, $('span'));
+			const isActive = activeFilter === filterType;
+			const tc = filterType ? (TYPE_COLORS[filterType] || '#666') : T.accent;
+			pill.style.cssText = `font-size:11px;padding:3px 10px;border-radius:${T.radiusPill};cursor:pointer;font-weight:500;transition:all 0.12s;background:${isActive ? tc : tc + '15'};color:${isActive ? '#fff' : tc};`;
+			pill.textContent = label;
+			pill.addEventListener('click', () => {
+				activeFilter = filterType;
+				rebuildList();
 			});
 		}
 
-		function rebuildList() {
-			listContainer.textContent = '';
-			renderList();
-		}
+		makePill('All', '');
+		const types = [...new Set(docs.map(d => d.type))];
+		for (const type of types) { makePill(TYPE_LABELS[type] || type, type); }
 
-		// == DETAIL ===========================================================
-		function renderDetail() {
-			detailContainer.textContent = '';
-			const doc = docs.find(d => d.id === activeDocId);
-			if (!doc) { showList(); return; }
+		// Doc rows container
+		const rowsContainer = append(listContainer, $('div'));
 
-			// Back button
-			const backRow = append(detailContainer, $('div'));
-			backRow.style.cssText = `display:flex;align-items:center;gap:6px;padding:8px 20px;cursor:pointer;border-bottom:1px solid ${T.border};transition:background 0.1s;`;
-			backRow.addEventListener('mouseenter', () => { backRow.style.background = T.surfaceHover; });
-			backRow.addEventListener('mouseleave', () => { backRow.style.background = ''; });
-			backRow.addEventListener('click', () => { showList(); rebuildList(); });
-			const backArrow = append(backRow, $('span'));
-			backArrow.style.cssText = `font-size:14px;color:${T.textMuted};`;
-			backArrow.textContent = '\u2190';
-			const backLabel = append(backRow, $('span'));
-			backLabel.style.cssText = `font-size:12px;color:${T.textMuted};`;
-			backLabel.textContent = 'Documents';
+		for (const doc of docs) {
+			if (activeFilter && doc.type !== activeFilter) { continue; }
 
-			// Header
-			const header = append(detailContainer, $('div'));
-			header.style.cssText = `padding:14px 20px;border-bottom:1px solid ${T.border};`;
+			const row = append(rowsContainer, $('div'));
+			row.style.cssText = `display:flex;align-items:center;gap:8px;padding:8px 20px;cursor:pointer;transition:background 0.1s;border-bottom:1px solid ${T.borderSubtle};`;
+			row.addEventListener('mouseenter', () => { row.style.background = T.surfaceHover; });
+			row.addEventListener('mouseleave', () => { row.style.background = ''; });
+			row.addEventListener('click', () => { showDetail(doc.id); });
 
 			const tc = TYPE_COLORS[doc.type] || '#666';
-			const typeBadge = append(header, $('span'));
-			typeBadge.style.cssText = `font-size:9px;font-weight:600;padding:2px 6px;border-radius:3px;background:${tc}20;color:${tc};text-transform:uppercase;letter-spacing:0.04em;`;
-			typeBadge.textContent = TYPE_LABELS[doc.type] || doc.type;
+			const badge = append(row, $('span'));
+			badge.style.cssText = `font-size:9px;font-weight:600;padding:2px 6px;border-radius:3px;background:${tc}20;color:${tc};text-transform:uppercase;letter-spacing:0.04em;white-space:nowrap;min-width:32px;text-align:center;`;
+			badge.textContent = TYPE_LABELS[doc.type] || doc.type;
 
-			// Editable title
-			const titleEl = append(header, $('div'));
-			titleEl.style.cssText = `font-size:16px;font-weight:600;color:${T.text};margin-top:8px;cursor:text;padding:2px 4px;border-radius:${T.radiusSm};transition:background 0.1s;letter-spacing:-0.01em;`;
-			titleEl.textContent = doc.title;
-			titleEl.addEventListener('mouseenter', () => { titleEl.style.background = T.surfaceHover; });
-			titleEl.addEventListener('mouseleave', () => { titleEl.style.background = ''; });
-			titleEl.addEventListener('click', () => {
-				const input = document.createElement('input');
-				input.type = 'text';
-				input.value = doc.title;
-				input.style.cssText = `width:100%;box-sizing:border-box;background:${T.surface};border:1px solid ${T.accent};color:${T.text};padding:4px 8px;border-radius:${T.radiusSm};font-size:16px;font-weight:600;font-family:inherit;outline:none;`;
-				titleEl.textContent = '';
-				titleEl.appendChild(input);
-				input.focus();
-				input.select();
-				const finish = () => { const v = input.value.trim(); if (v) { doc.title = v; } titleEl.textContent = doc.title; };
-				input.addEventListener('blur', finish);
-				input.addEventListener('keydown', (ke) => { if (ke.key === 'Enter') { input.blur(); } if (ke.key === 'Escape') { input.value = doc.title; input.blur(); } });
-			});
-
-			// Metadata
-			const metaRow = append(header, $('div'));
-			metaRow.style.cssText = `display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap;`;
-
-			const statusBtn = append(metaRow, $('span'));
-			let sc = STATUS_COLORS[doc.status] || '#666';
-			statusBtn.style.cssText = `display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:3px 10px;border-radius:${T.radiusPill};background:${sc}20;color:${sc};cursor:pointer;font-weight:500;transition:all 0.12s;`;
-			statusBtn.textContent = STATUS_LABELS[doc.status] || doc.status;
-			statusBtn.title = 'Click to change status';
-			statusBtn.addEventListener('click', () => {
-				const idx = STATUSES.indexOf(doc.status);
-				doc.status = STATUSES[(idx + 1) % STATUSES.length];
-				sc = STATUS_COLORS[doc.status] || '#666';
-				statusBtn.style.background = `${sc}20`;
-				statusBtn.style.color = sc;
-				statusBtn.textContent = STATUS_LABELS[doc.status] || doc.status;
-			});
-
-			const ownerEl = append(metaRow, $('span'));
-			ownerEl.style.cssText = `display:inline-flex;align-items:center;gap:4px;font-size:11px;color:${T.textMuted};`;
-			const ownerAv = append(ownerEl, $('span'));
-			ownerAv.style.cssText = `display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;font-size:7px;font-weight:600;color:#fff;background:${doc.ownerColor};`;
-			ownerAv.textContent = doc.ownerInitials;
-			ownerEl.appendChild(document.createTextNode(doc.owner));
-
+			const info = append(row, $('div'));
+			info.style.cssText = 'flex:1;min-width:0;';
+			const title = append(info, $('div'));
+			title.style.cssText = `font-size:13px;color:${T.text};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:-0.01em;`;
+			title.textContent = doc.title;
+			const meta = append(info, $('div'));
+			meta.style.cssText = `font-size:11px;color:${T.textFaint};display:flex;align-items:center;gap:6px;margin-top:1px;`;
+			const sc = STATUS_COLORS[doc.status] || '#666';
+			const dot = append(meta, $('span'));
+			dot.style.cssText = `width:5px;height:5px;border-radius:50%;background:${sc};`;
+			const sl = append(meta, $('span'));
+			sl.textContent = STATUS_LABELS[doc.status] || doc.status;
+			const upd = append(meta, $('span'));
+			upd.textContent = `\u00B7 ${doc.updatedAt}`;
 			if (doc.tasksTotal > 0) {
-				const tp = append(metaRow, $('span'));
-				tp.style.cssText = `font-size:11px;color:${doc.tasksDone === doc.tasksTotal ? '#22c55e' : T.textFaint};`;
-				tp.textContent = `${doc.tasksDone}/${doc.tasksTotal} tasks`;
+				const p = append(meta, $('span'));
+				p.style.cssText = `color:${doc.tasksDone === doc.tasksTotal ? '#22c55e' : T.textFaint};`;
+				p.textContent = `\u00B7 ${doc.tasksDone}/${doc.tasksTotal} tasks`;
 			}
 
-			// Mode toggle + content
-			const contentSection = append(detailContainer, $('div'));
-			contentSection.style.cssText = 'padding:0 20px 20px;';
-
-			const modeRow = append(contentSection, $('div'));
-			modeRow.style.cssText = 'display:flex;gap:0;margin:12px 0 10px;';
-			let mode = 'preview';
-
-			const previewBtn = append(modeRow, $('span'));
-			const editBtn = append(modeRow, $('span'));
-			const editorBtn = append(modeRow, $('span'));
-			const btnBase = `padding:5px 14px;font-size:11px;cursor:pointer;font-weight:500;transition:all 0.12s;border:1px solid ${T.border};`;
-			previewBtn.style.cssText = `${btnBase}border-radius:${T.radiusSm} 0 0 ${T.radiusSm};background:${T.accent};color:#fff;border-color:${T.accent};`;
-			previewBtn.textContent = 'Preview';
-			editBtn.style.cssText = `${btnBase}border-radius:0;background:transparent;color:${T.textMuted};border-left:none;`;
-			editBtn.textContent = 'Edit';
-			editorBtn.style.cssText = `${btnBase}border-radius:0 ${T.radiusSm} ${T.radiusSm} 0;background:transparent;color:${T.textMuted};border-left:none;`;
-			editorBtn.textContent = 'Open in Editor';
-
-			const contentArea = append(contentSection, $('div'));
-
-			function renderContent() {
-				contentArea.textContent = '';
-				if (mode === 'preview') {
-					previewBtn.style.cssText = `${btnBase}border-radius:${T.radiusSm} 0 0 ${T.radiusSm};background:${T.accent};color:#fff;border-color:${T.accent};`;
-					editBtn.style.cssText = `${btnBase}border-radius:0;background:transparent;color:${T.textMuted};border-left:none;border-color:${T.border};`;
-					const preview = append(contentArea, $('div'));
-					preview.style.cssText = `font-size:13px;line-height:1.7;color:${T.text};`;
-					renderMarkdownToDOM(preview, doc.content);
-				} else {
-					editBtn.style.cssText = `${btnBase}border-radius:0;background:${T.accent};color:#fff;border-color:${T.accent};border-left:none;`;
-					previewBtn.style.cssText = `${btnBase}border-radius:${T.radiusSm} 0 0 ${T.radiusSm};background:transparent;color:${T.textMuted};border-color:${T.border};`;
-					const textarea = document.createElement('textarea');
-					textarea.value = doc.content;
-					textarea.style.cssText = `width:100%;box-sizing:border-box;min-height:300px;background:${T.surface};border:1px solid ${T.border};color:${T.text};padding:12px;border-radius:${T.radius};font-size:12px;font-family:var(--monaco-monospace-font);line-height:1.6;outline:none;resize:vertical;`;
-					textarea.addEventListener('focus', () => { textarea.style.borderColor = T.accent; });
-					textarea.addEventListener('blur', () => { textarea.style.borderColor = T.border; doc.content = textarea.value; });
-					contentArea.appendChild(textarea);
-				}
-			}
-
-			previewBtn.addEventListener('click', () => { mode = 'preview'; renderContent(); });
-			editBtn.addEventListener('click', () => { mode = 'edit'; renderContent(); });
-			editorBtn.addEventListener('click', () => { commandService.executeCommand('prendgame.openDocumentInEditor', doc.id); });
-
-			renderContent();
+			const av = append(row, $('span'));
+			av.style.cssText = `display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;font-size:8px;font-weight:600;color:#fff;flex-shrink:0;background:${doc.ownerColor};`;
+			av.textContent = doc.ownerInitials;
 		}
 
-		// Initial render
+		// New doc button
+		const wrap = append(listContainer, $('div'));
+		wrap.style.cssText = 'padding:12px 20px;';
+		const btn = append(wrap, $('div'));
+		btn.style.cssText = `display:flex;align-items:center;justify-content:center;padding:7px;border-radius:${T.radius};border:1px dashed ${T.border};cursor:pointer;font-size:11px;font-weight:500;color:${T.textMuted};transition:all 0.15s;`;
+		btn.textContent = '+ New Document';
+		btn.addEventListener('mouseenter', () => { btn.style.color = T.text; btn.style.borderColor = T.accent; btn.style.background = T.surfaceHover; });
+		btn.addEventListener('mouseleave', () => { btn.style.color = T.textMuted; btn.style.borderColor = T.border; btn.style.background = ''; });
+		btn.addEventListener('click', () => {
+			const id = `doc-new-${Date.now()}`;
+			docs.unshift({ id, title: 'Untitled Document', type: 'prd', status: 'draft', owner: 'Alex Chen', ownerInitials: 'AC', ownerColor: '#6366f1', tasksTotal: 0, tasksDone: 0, updatedAt: 'Just now', content: '## Overview\n\nDescribe the purpose of this document.\n\n## Goals\n\n1. \n2. \n3. \n' });
+			showDetail(id);
+		});
+	}
+
+	function rebuildList() {
+		listContainer.textContent = '';
 		renderList();
 	}
+
+	// == DETAIL ===========================================================
+	function renderDetail() {
+		detailContainer.textContent = '';
+		const doc = docs.find(d => d.id === activeDocId);
+		if (!doc) { showList(); return; }
+
+		// Back button
+		const backRow = append(detailContainer, $('div'));
+		backRow.style.cssText = `display:flex;align-items:center;gap:6px;padding:8px 20px;cursor:pointer;border-bottom:1px solid ${T.border};transition:background 0.1s;`;
+		backRow.addEventListener('mouseenter', () => { backRow.style.background = T.surfaceHover; });
+		backRow.addEventListener('mouseleave', () => { backRow.style.background = ''; });
+		backRow.addEventListener('click', () => { showList(); rebuildList(); });
+		const backArrow = append(backRow, $('span'));
+		backArrow.style.cssText = `font-size:14px;color:${T.textMuted};`;
+		backArrow.textContent = '\u2190';
+		const backLabel = append(backRow, $('span'));
+		backLabel.style.cssText = `font-size:12px;color:${T.textMuted};`;
+		backLabel.textContent = 'Documents';
+
+		// Header
+		const header = append(detailContainer, $('div'));
+		header.style.cssText = `padding:14px 20px;border-bottom:1px solid ${T.border};`;
+
+		const tc = TYPE_COLORS[doc.type] || '#666';
+		const typeBadge = append(header, $('span'));
+		typeBadge.style.cssText = `font-size:9px;font-weight:600;padding:2px 6px;border-radius:3px;background:${tc}20;color:${tc};text-transform:uppercase;letter-spacing:0.04em;`;
+		typeBadge.textContent = TYPE_LABELS[doc.type] || doc.type;
+
+		// Editable title
+		const titleEl = append(header, $('div'));
+		titleEl.style.cssText = `font-size:16px;font-weight:600;color:${T.text};margin-top:8px;cursor:text;padding:2px 4px;border-radius:${T.radiusSm};transition:background 0.1s;letter-spacing:-0.01em;`;
+		titleEl.textContent = doc.title;
+		titleEl.addEventListener('mouseenter', () => { titleEl.style.background = T.surfaceHover; });
+		titleEl.addEventListener('mouseleave', () => { titleEl.style.background = ''; });
+		titleEl.addEventListener('click', () => {
+			const input = document.createElement('input');
+			input.type = 'text';
+			input.value = doc.title;
+			input.style.cssText = `width:100%;box-sizing:border-box;background:${T.surface};border:1px solid ${T.accent};color:${T.text};padding:4px 8px;border-radius:${T.radiusSm};font-size:16px;font-weight:600;font-family:inherit;outline:none;`;
+			titleEl.textContent = '';
+			titleEl.appendChild(input);
+			input.focus();
+			input.select();
+			const finish = () => { const v = input.value.trim(); if (v) { doc.title = v; } titleEl.textContent = doc.title; };
+			input.addEventListener('blur', finish);
+			input.addEventListener('keydown', (ke) => { if (ke.key === 'Enter') { input.blur(); } if (ke.key === 'Escape') { input.value = doc.title; input.blur(); } });
+		});
+
+		// Metadata
+		const metaRow = append(header, $('div'));
+		metaRow.style.cssText = `display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap;`;
+
+		const statusBtn = append(metaRow, $('span'));
+		let sc = STATUS_COLORS[doc.status] || '#666';
+		statusBtn.style.cssText = `display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:3px 10px;border-radius:${T.radiusPill};background:${sc}20;color:${sc};cursor:pointer;font-weight:500;transition:all 0.12s;`;
+		statusBtn.textContent = STATUS_LABELS[doc.status] || doc.status;
+		statusBtn.title = 'Click to change status';
+		statusBtn.addEventListener('click', () => {
+			const idx = STATUSES.indexOf(doc.status);
+			doc.status = STATUSES[(idx + 1) % STATUSES.length];
+			sc = STATUS_COLORS[doc.status] || '#666';
+			statusBtn.style.background = `${sc}20`;
+			statusBtn.style.color = sc;
+			statusBtn.textContent = STATUS_LABELS[doc.status] || doc.status;
+		});
+
+		const ownerEl = append(metaRow, $('span'));
+		ownerEl.style.cssText = `display:inline-flex;align-items:center;gap:4px;font-size:11px;color:${T.textMuted};`;
+		const ownerAv = append(ownerEl, $('span'));
+		ownerAv.style.cssText = `display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;font-size:7px;font-weight:600;color:#fff;background:${doc.ownerColor};`;
+		ownerAv.textContent = doc.ownerInitials;
+		ownerEl.appendChild(document.createTextNode(doc.owner));
+
+		if (doc.tasksTotal > 0) {
+			const tp = append(metaRow, $('span'));
+			tp.style.cssText = `font-size:11px;color:${doc.tasksDone === doc.tasksTotal ? '#22c55e' : T.textFaint};`;
+			tp.textContent = `${doc.tasksDone}/${doc.tasksTotal} tasks`;
+		}
+
+		// Mode toggle + content
+		const contentSection = append(detailContainer, $('div'));
+		contentSection.style.cssText = 'padding:0 20px 20px;';
+
+		const modeRow = append(contentSection, $('div'));
+		modeRow.style.cssText = 'display:flex;gap:0;margin:12px 0 10px;';
+		let mode = 'preview';
+
+		const previewBtn = append(modeRow, $('span'));
+		const editBtn = append(modeRow, $('span'));
+		const editorBtn = append(modeRow, $('span'));
+		const btnBase = `padding:5px 14px;font-size:11px;cursor:pointer;font-weight:500;transition:all 0.12s;border:1px solid ${T.border};`;
+		previewBtn.style.cssText = `${btnBase}border-radius:${T.radiusSm} 0 0 ${T.radiusSm};background:${T.accent};color:#fff;border-color:${T.accent};`;
+		previewBtn.textContent = 'Preview';
+		editBtn.style.cssText = `${btnBase}border-radius:0;background:transparent;color:${T.textMuted};border-left:none;`;
+		editBtn.textContent = 'Edit';
+		editorBtn.style.cssText = `${btnBase}border-radius:0 ${T.radiusSm} ${T.radiusSm} 0;background:transparent;color:${T.textMuted};border-left:none;`;
+		editorBtn.textContent = 'Open in Editor';
+
+		const contentArea = append(contentSection, $('div'));
+
+		function renderContent() {
+			contentArea.textContent = '';
+			if (mode === 'preview') {
+				previewBtn.style.cssText = `${btnBase}border-radius:${T.radiusSm} 0 0 ${T.radiusSm};background:${T.accent};color:#fff;border-color:${T.accent};`;
+				editBtn.style.cssText = `${btnBase}border-radius:0;background:transparent;color:${T.textMuted};border-left:none;border-color:${T.border};`;
+				const preview = append(contentArea, $('div'));
+				preview.style.cssText = `font-size:13px;line-height:1.7;color:${T.text};`;
+				renderMarkdownToDOM(preview, doc.content);
+			} else {
+				editBtn.style.cssText = `${btnBase}border-radius:0;background:${T.accent};color:#fff;border-color:${T.accent};border-left:none;`;
+				previewBtn.style.cssText = `${btnBase}border-radius:${T.radiusSm} 0 0 ${T.radiusSm};background:transparent;color:${T.textMuted};border-color:${T.border};`;
+				const textarea = document.createElement('textarea');
+				textarea.value = doc.content;
+				textarea.style.cssText = `width:100%;box-sizing:border-box;min-height:300px;background:${T.surface};border:1px solid ${T.border};color:${T.text};padding:12px;border-radius:${T.radius};font-size:12px;font-family:var(--monaco-monospace-font);line-height:1.6;outline:none;resize:vertical;`;
+				textarea.addEventListener('focus', () => { textarea.style.borderColor = T.accent; });
+				textarea.addEventListener('blur', () => { textarea.style.borderColor = T.border; doc.content = textarea.value; });
+				contentArea.appendChild(textarea);
+			}
+		}
+
+		previewBtn.addEventListener('click', () => { mode = 'preview'; renderContent(); });
+		editBtn.addEventListener('click', () => { mode = 'edit'; renderContent(); });
+		editorBtn.addEventListener('click', () => { commandService.executeCommand('prendgame.openDocumentInEditor', doc.id); });
+
+		renderContent();
+	}
+
+	// Initial render
+	renderList();
 }
