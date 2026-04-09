@@ -378,20 +378,22 @@ export function renderBoardContent(root: HTMLElement, commandService: { executeC
 		dueVal.addEventListener('mouseleave', () => { dueVal.style.background = ''; });
 		dueVal.addEventListener('click', () => {
 			const input = document.createElement('input');
-			input.type = 'date';
+			input.type = 'text';
 			input.value = task.dueDate || '';
-			input.style.cssText = `background:${T.surface};border:1px solid ${T.accent};color:${T.text};padding:2px 6px;border-radius:${T.radiusSm};font-size:11px;font-family:inherit;outline:none;`;
+			input.placeholder = 'YYYY-MM-DD';
+			input.style.cssText = `width:120px;box-sizing:border-box;background:${T.surface};border:1px solid ${T.accent};color:${T.text};padding:2px 6px;border-radius:${T.radiusSm};font-size:11px;font-family:inherit;outline:none;`;
 			dueVal.textContent = '';
 			dueVal.appendChild(input);
 			input.focus();
+			input.select();
 			const finish = () => {
-				task.dueDate = input.value;
+				task.dueDate = input.value.trim();
 				const newDs = getDueDateStyle(task.dueDate);
 				dueVal.style.color = newDs.color;
 				dueVal.textContent = newDs.label || 'No due date';
 			};
 			input.addEventListener('blur', finish);
-			input.addEventListener('change', () => { input.blur(); });
+			input.addEventListener('keydown', (ke) => { if (ke.key === 'Enter') { input.blur(); } if (ke.key === 'Escape') { input.value = task.dueDate; input.blur(); } });
 		});
 
 		// Description
