@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { $, append } from '../../../../base/browser/dom.js';
+import { $, append, getWindow } from '../../../../base/browser/dom.js';
 import { IViewPaneOptions, ViewPane } from '../../../browser/parts/views/viewPane.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
@@ -218,30 +218,70 @@ export function renderBoardContent(root: HTMLElement, commandService: { executeC
 		const statusLbl = append(metaGrid, $('span'));
 		statusLbl.style.cssText = `font-size:11px;color:${T.textFaint};`;
 		statusLbl.textContent = 'Status';
-		const statusPill = append(metaGrid, $('span'));
-		const sc = STATUS_COLORS[groupId] || '#666';
-		statusPill.style.cssText = `display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:3px 10px;border-radius:${T.radiusPill};background:${sc}20;color:${sc};cursor:pointer;font-weight:500;width:fit-content;`;
-		statusPill.textContent = statusLabel;
-		statusPill.title = 'Click to change status';
+		const statusWrap = append(metaGrid, $('div'));
+		statusWrap.style.cssText = 'position:relative;';
+		const statusPill = append(statusWrap, $('span'));
+		let sc = STATUS_COLORS[groupId] || '#666';
+		const taskStatuses = ['backlog', 'todo', 'in_progress', 'in_review', 'done'];
+		const taskStatusLabels: Record<string, string> = { backlog: 'Backlog', todo: 'To Do', in_progress: 'In Progress', in_review: 'In Review', done: 'Done' };
+		statusPill.style.cssText = `display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:3px 10px;border-radius:${T.radiusPill};background:${sc}20;color:${sc};cursor:pointer;font-weight:500;`;
+		statusPill.textContent = statusLabel + ' \u25BE';
+		let statusDropdown: HTMLElement | null = null;
+		statusPill.addEventListener('click', () => {
+			if (statusDropdown) { statusDropdown.remove(); statusDropdown = null; return; }
+			const dd = append(statusWrap, $('div'));
+			statusDropdown = dd;
+			dd.style.cssText = `position:absolute;top:100%;left:0;margin-top:4px;background:${T.surface};border:1px solid ${T.border};border-radius:${T.radius};padding:4px 0;z-index:1000;min-width:130px;box-shadow:0 4px 12px rgba(0,0,0,0.3);`;
+			for (const s of taskStatuses) {
+				const opt = append(dd, $('div'));
+				const osc = STATUS_COLORS[s] || '#666';
+				opt.style.cssText = `display:flex;align-items:center;gap:8px;padding:5px 12px;cursor:pointer;font-size:11px;color:${T.textMuted};transition:background 0.1s;`;
+				opt.addEventListener('mouseenter', () => { opt.style.background = T.surfaceHover; });
+				opt.addEventListener('mouseleave', () => { opt.style.background = ''; });
+				const od = append(opt, $('span'));
+				od.style.cssText = `width:6px;height:6px;border-radius:50%;background:${osc};flex-shrink:0;`;
+				const ol = append(opt, $('span'));
+				ol.textContent = taskStatusLabels[s] || s;
+				opt.addEventListener('click', (e) => { e.stopPropagation(); sc = osc; statusPill.style.background = `${sc}20`; statusPill.style.color = sc; statusPill.textContent = (taskStatusLabels[s] || s) + ' \u25BE'; dd.remove(); statusDropdown = null; });
+			}
+			const w = getWindow(statusWrap);
+			const closeFn = (e: Event) => { if (!statusWrap.contains(e.target as Node)) { dd.remove(); statusDropdown = null; w.document.removeEventListener('click', closeFn); } };
+			setTimeout(() => w.document.addEventListener('click', closeFn), 0);
+		});
 
 		// Priority
 		const prioLbl = append(metaGrid, $('span'));
 		prioLbl.style.cssText = `font-size:11px;color:${T.textFaint};`;
 		prioLbl.textContent = 'Priority';
-		const prioPill = append(metaGrid, $('span'));
-		const pc = PRIORITY_COLORS[task.priority] || '#52525b';
+		const prioWrap = append(metaGrid, $('div'));
+		prioWrap.style.cssText = 'position:relative;';
+		const prioPill = append(prioWrap, $('span'));
+		let pc = PRIORITY_COLORS[task.priority] || '#52525b';
 		const prioLabels: Record<string, string> = { critical: 'Critical', high: 'High', medium: 'Medium', low: 'Low' };
-		prioPill.style.cssText = `display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:3px 10px;border-radius:${T.radiusPill};background:${pc}20;color:${pc};cursor:pointer;font-weight:500;width:fit-content;`;
-		prioPill.textContent = prioLabels[task.priority] || task.priority;
-		prioPill.title = 'Click to change priority';
 		const priorities = ['low', 'medium', 'high', 'critical'];
+		prioPill.style.cssText = `display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:3px 10px;border-radius:${T.radiusPill};background:${pc}20;color:${pc};cursor:pointer;font-weight:500;`;
+		prioPill.textContent = (prioLabels[task.priority] || task.priority) + ' \u25BE';
+		let prioDropdown: HTMLElement | null = null;
 		prioPill.addEventListener('click', () => {
-			const idx = priorities.indexOf(task.priority);
-			task.priority = priorities[(idx + 1) % priorities.length];
-			const newPc = PRIORITY_COLORS[task.priority] || '#52525b';
-			prioPill.style.background = `${newPc}20`;
-			prioPill.style.color = newPc;
-			prioPill.textContent = prioLabels[task.priority] || task.priority;
+			if (prioDropdown) { prioDropdown.remove(); prioDropdown = null; return; }
+			const dd = append(prioWrap, $('div'));
+			prioDropdown = dd;
+			dd.style.cssText = `position:absolute;top:100%;left:0;margin-top:4px;background:${T.surface};border:1px solid ${T.border};border-radius:${T.radius};padding:4px 0;z-index:1000;min-width:110px;box-shadow:0 4px 12px rgba(0,0,0,0.3);`;
+			for (const p of priorities) {
+				const opt = append(dd, $('div'));
+				const opc = PRIORITY_COLORS[p] || '#52525b';
+				opt.style.cssText = `display:flex;align-items:center;gap:8px;padding:5px 12px;cursor:pointer;font-size:11px;color:${T.textMuted};transition:background 0.1s;`;
+				opt.addEventListener('mouseenter', () => { opt.style.background = T.surfaceHover; });
+				opt.addEventListener('mouseleave', () => { opt.style.background = ''; });
+				const od = append(opt, $('span'));
+				od.style.cssText = `width:6px;height:6px;border-radius:50%;background:${opc};flex-shrink:0;`;
+				const ol = append(opt, $('span'));
+				ol.textContent = prioLabels[p] || p;
+				opt.addEventListener('click', (e) => { e.stopPropagation(); task.priority = p; pc = opc; prioPill.style.background = `${pc}20`; prioPill.style.color = pc; prioPill.textContent = (prioLabels[p] || p) + ' \u25BE'; dd.remove(); prioDropdown = null; });
+			}
+			const w = getWindow(prioWrap);
+			const closeFn = (e: Event) => { if (!prioWrap.contains(e.target as Node)) { dd.remove(); prioDropdown = null; w.document.removeEventListener('click', closeFn); } };
+			setTimeout(() => w.document.addEventListener('click', closeFn), 0);
 		});
 
 		// Assignee

@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { $, append } from '../../../../base/browser/dom.js';
+import { $, append, getWindow } from '../../../../base/browser/dom.js';
 import { IViewPaneOptions, ViewPane } from '../../../browser/parts/views/viewPane.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
@@ -267,18 +267,49 @@ export function renderDocsContent(root: HTMLElement, commandService: { executeCo
 		const metaRow = append(header, $('div'));
 		metaRow.style.cssText = `display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap;`;
 
-		const statusBtn = append(metaRow, $('span'));
+		const statusWrap = append(metaRow, $('div'));
+		statusWrap.style.cssText = 'position:relative;';
+		const statusBtn = append(statusWrap, $('span'));
 		let sc = STATUS_COLORS[doc.status] || '#666';
 		statusBtn.style.cssText = `display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:3px 10px;border-radius:${T.radiusPill};background:${sc}20;color:${sc};cursor:pointer;font-weight:500;transition:all 0.12s;`;
-		statusBtn.textContent = STATUS_LABELS[doc.status] || doc.status;
-		statusBtn.title = 'Click to change status';
+		statusBtn.textContent = (STATUS_LABELS[doc.status] || doc.status) + ' \u25BE';
+
+		let statusDropdown: HTMLElement | null = null;
 		statusBtn.addEventListener('click', () => {
-			const idx = STATUSES.indexOf(doc.status);
-			doc.status = STATUSES[(idx + 1) % STATUSES.length];
-			sc = STATUS_COLORS[doc.status] || '#666';
-			statusBtn.style.background = `${sc}20`;
-			statusBtn.style.color = sc;
-			statusBtn.textContent = STATUS_LABELS[doc.status] || doc.status;
+			if (statusDropdown) { statusDropdown.remove(); statusDropdown = null; return; }
+			const dd = append(statusWrap, $('div'));
+			statusDropdown = dd;
+			dd.style.cssText = `position:absolute;top:100%;left:0;margin-top:4px;background:${T.surface};border:1px solid ${T.border};border-radius:${T.radius};padding:4px 0;z-index:1000;min-width:140px;box-shadow:0 4px 12px rgba(0,0,0,0.3);`;
+
+			for (const status of STATUSES) {
+				const option = append(dd, $('div'));
+				const optSc = STATUS_COLORS[status] || '#666';
+				const isActive = doc.status === status;
+				option.style.cssText = `display:flex;align-items:center;gap:8px;padding:5px 12px;cursor:pointer;font-size:11px;color:${isActive ? T.text : T.textMuted};transition:background 0.1s;`;
+				option.addEventListener('mouseenter', () => { option.style.background = T.surfaceHover; });
+				option.addEventListener('mouseleave', () => { option.style.background = ''; });
+
+				const optDot = append(option, $('span'));
+				optDot.style.cssText = `width:6px;height:6px;border-radius:50%;background:${optSc};flex-shrink:0;`;
+				const optLabel = append(option, $('span'));
+				optLabel.textContent = STATUS_LABELS[status] || status;
+				if (isActive) { optLabel.style.fontWeight = '600'; }
+
+				option.addEventListener('click', (e) => {
+					e.stopPropagation();
+					doc.status = status;
+					sc = STATUS_COLORS[doc.status] || '#666';
+					statusBtn.style.background = `${sc}20`;
+					statusBtn.style.color = sc;
+					statusBtn.textContent = (STATUS_LABELS[doc.status] || doc.status) + ' \u25BE';
+					dd.remove();
+					statusDropdown = null;
+				});
+			}
+
+			const w = getWindow(statusWrap);
+			const closeFn = (e: Event) => { if (!statusWrap.contains(e.target as Node)) { dd.remove(); statusDropdown = null; w.document.removeEventListener('click', closeFn); } };
+			setTimeout(() => w.document.addEventListener('click', closeFn), 0);
 		});
 
 		const ownerEl = append(metaRow, $('span'));
