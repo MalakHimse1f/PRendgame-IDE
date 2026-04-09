@@ -53,6 +53,7 @@ function DocumentView() {
 				<div class="doc-mode-toggle">
 					<button class={`pg-btn ${mode === 'preview' ? 'pg-btn--primary' : ''}`} onClick={() => setMode('preview')}>Preview</button>
 					<button class={`pg-btn ${mode === 'edit' ? 'pg-btn--primary' : ''}`} onClick={() => setMode('edit')}>Edit</button>
+					<button class="pg-btn" style={{ marginLeft: 'auto' }} onClick={() => postMessage('openInEditor')}>Open in Editor</button>
 				</div>
 
 				<h1 class="doc-title">{doc.title}</h1>

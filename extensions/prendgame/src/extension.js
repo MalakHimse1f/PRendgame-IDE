@@ -265,31 +265,47 @@ function activate(context) {
 		});
 	}));
 
-	// -- Document -------------------------------------------------------------
-	context.subscriptions.push(vscode.commands.registerCommand('prendgame.openDocument', async (docId) => {
+	// -- Document helpers ------------------------------------------------------
+	function writeDocFile(doc) {
+		const docsDir = path.join(__dirname, '..', 'mock-data', 'docs');
+		if (!fs.existsSync(docsDir)) { fs.mkdirSync(docsDir, { recursive: true }); }
+		const filePath = path.join(docsDir, `${doc.id}.md`);
+		const author = store.getMember(doc.author);
+		const linkedTasks = (doc.linkedTasks || []).map(id => store.tasks.tasks.find(t => t.id === id)).filter(Boolean);
+		let header = `---\ntitle: "${doc.title}"\ntype: ${doc.type}\nauthor: ${author ? author.name : 'Unknown'}\nstatus: ${doc.status}\n`;
+		if (linkedTasks.length > 0) {
+			header += `linked_tasks:\n${linkedTasks.map(t => `  - ${t.id}: ${t.title}`).join('\n')}\n`;
+		}
+		header += `---\n\n`;
+		fs.writeFileSync(filePath, header + doc.content, 'utf8');
+		return filePath;
+	}
+
+	// -- Document (Preact webview) --------------------------------------------
+	context.subscriptions.push(vscode.commands.registerCommand('prendgame.openDocument', (docId) => {
 		const doc = store.docs.documents.find(d => d.id === docId);
 		if (!doc) { return; }
 
-		// Write document content to a temp .md file and open in native editor
-		const docsDir = path.join(__dirname, '..', 'mock-data', 'docs');
-		if (!fs.existsSync(docsDir)) { fs.mkdirSync(docsDir, { recursive: true }); }
+		const panel = vscode.window.createWebviewPanel(
+			'prendgame.document', doc.title, vscode.ViewColumn.One,
+			{ enableScripts: true, localResourceRoots: [vscode.Uri.joinPath(extUri, 'dist')] }
+		);
+		panel.webview.html = getWebviewHTML(panel.webview, extUri, 'document/index.js');
 
-		const filePath = path.join(docsDir, `${doc.id}.md`);
-		if (!fs.existsSync(filePath)) {
-			// Add metadata header to the content
-			const author = store.getMember(doc.author);
-			const linkedTasks = (doc.linkedTasks || []).map(id => store.tasks.tasks.find(t => t.id === id)).filter(Boolean);
-			let header = `---\ntitle: "${doc.title}"\ntype: ${doc.type}\nauthor: ${author ? author.name : 'Unknown'}\nstatus: ${doc.status}\n`;
-			if (linkedTasks.length > 0) {
-				header += `linked_tasks:\n${linkedTasks.map(t => `  - ${t.id}: ${t.title}`).join('\n')}\n`;
+		const author = store.getMember(doc.author) || { name: 'Unknown', avatar: '?', color: '#666' };
+		const linkedTasks = (doc.linkedTasks || []).map(id => store.tasks.tasks.find(t => t.id === id)).filter(Boolean);
+
+		panel.webview.onDidReceiveMessage(msg => {
+			if (msg.command === 'ready') {
+				panel.webview.postMessage({ command: 'init', data: { doc, author, linkedTasks } });
+			} else if (msg.command === 'openTask') {
+				vscode.commands.executeCommand('prendgame.openTaskDetail', msg.taskId);
+			} else if (msg.command === 'openInEditor') {
+				const filePath = writeDocFile(doc);
+				const uri = vscode.Uri.file(filePath);
+				vscode.window.showTextDocument(uri);
 			}
-			header += `---\n\n`;
-			fs.writeFileSync(filePath, header + doc.content, 'utf8');
-		}
-
-		const uri = vscode.Uri.file(filePath);
-		// Open in markdown preview mode for rich formatting
-		await vscode.commands.executeCommand('markdown.showPreview', uri);
+		});
 	}));
 
 	// -- Sprint Dashboard -----------------------------------------------------
