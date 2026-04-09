@@ -27,7 +27,7 @@ const prendgameViewContainer = Registry.as<IViewContainersRegistry>(ViewExtensio
 	storageId: PRENDGAME_CONTAINER_ID,
 	hideIfEmpty: false,
 	order: 10,
-}, ViewContainerLocation.AuxiliaryBar, { isDefault: false });
+}, ViewContainerLocation.AuxiliaryBar, { isDefault: true });
 
 // --- Board View ---
 
