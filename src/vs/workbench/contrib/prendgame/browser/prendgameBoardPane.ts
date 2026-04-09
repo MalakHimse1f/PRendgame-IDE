@@ -397,6 +397,79 @@ export function renderBoardContent(root: HTMLElement, commandService: { executeC
 			textarea.addEventListener('keydown', (ke) => { if (ke.key === 'Escape') { renderDesc(); } });
 		});
 
+		// Comments
+		const commentsSection = append(detailContainer, $('div'));
+		commentsSection.style.cssText = `padding:14px 20px;border-bottom:1px solid ${T.border};`;
+
+		const mockComments: { author: string; initials: string; color: string; text: string; time: string }[] = [
+			{ author: 'Alex Chen', initials: 'AC', color: '#6366f1', text: 'Please make sure the acceptance criteria cover edge cases for empty states.', time: '2 days ago' },
+			{ author: 'Jordan Park', initials: 'JP', color: '#06b6d4', text: 'Good call. I will add handling for the zero-task state and loading skeleton.', time: 'Yesterday' },
+			{ author: 'Avery Quinn', initials: 'AQ', color: '#ec4899', text: 'Adding this to my QA checklist.', time: '3 hours ago' },
+		];
+
+		const commentsTitle = append(commentsSection, $('div'));
+		commentsTitle.style.cssText = `font-size:11px;font-weight:600;color:${T.textFaint};text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px;`;
+		commentsTitle.textContent = `Comments (${mockComments.length})`;
+
+		const commentsList = append(commentsSection, $('div'));
+
+		function renderComment(c: { author: string; initials: string; color: string; text: string; time: string }) {
+			const entry = append(commentsList, $('div'));
+			entry.style.cssText = `margin-bottom:12px;`;
+
+			const header = append(entry, $('div'));
+			header.style.cssText = `display:flex;align-items:center;gap:6px;margin-bottom:3px;`;
+
+			const cav = append(header, $('span'));
+			cav.style.cssText = `display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;font-size:7px;font-weight:600;color:#fff;background:${c.color};flex-shrink:0;`;
+			cav.textContent = c.initials;
+
+			const cname = append(header, $('span'));
+			cname.style.cssText = `font-size:12px;font-weight:500;color:${T.text};`;
+			cname.textContent = c.author;
+
+			const ctime = append(header, $('span'));
+			ctime.style.cssText = `font-size:10px;color:${T.textFaint};margin-left:auto;`;
+			ctime.textContent = c.time;
+
+			const cbody = append(entry, $('div'));
+			cbody.style.cssText = `font-size:12px;color:${T.textMuted};line-height:1.5;padding-left:24px;`;
+			cbody.textContent = c.text;
+		}
+
+		for (const c of mockComments) { renderComment(c); }
+
+		// Add comment input
+		const addRow = append(commentsSection, $('div'));
+		addRow.style.cssText = `display:flex;gap:8px;margin-top:8px;`;
+
+		const commentInput = document.createElement('input');
+		commentInput.type = 'text';
+		commentInput.placeholder = 'Add a comment...';
+		commentInput.style.cssText = `flex:1;background:${T.surface};border:1px solid ${T.border};color:${T.text};padding:6px 10px;border-radius:${T.radiusSm};font-size:12px;font-family:inherit;outline:none;box-sizing:border-box;`;
+		commentInput.addEventListener('focus', () => { commentInput.style.borderColor = T.accent; });
+		commentInput.addEventListener('blur', () => { commentInput.style.borderColor = T.border; });
+		addRow.appendChild(commentInput);
+
+		const sendBtn = append(addRow, $('span'));
+		sendBtn.style.cssText = `padding:6px 14px;border-radius:${T.radiusSm};background:${T.accent};color:#fff;font-size:11px;font-weight:500;cursor:pointer;transition:opacity 0.12s;flex-shrink:0;`;
+		sendBtn.textContent = 'Send';
+		sendBtn.addEventListener('mouseenter', () => { sendBtn.style.opacity = '0.85'; });
+		sendBtn.addEventListener('mouseleave', () => { sendBtn.style.opacity = '1'; });
+
+		function addComment() {
+			const text = commentInput.value.trim();
+			if (!text) { return; }
+			const newComment = { author: 'Jordan Park', initials: 'JP', color: '#06b6d4', text, time: 'Just now' };
+			mockComments.push(newComment);
+			renderComment(newComment);
+			commentsTitle.textContent = `Comments (${mockComments.length})`;
+			commentInput.value = '';
+		}
+
+		sendBtn.addEventListener('click', addComment);
+		commentInput.addEventListener('keydown', (ke) => { if (ke.key === 'Enter') { addComment(); } });
+
 		// Open in Editor button
 		const btnWrap = append(detailContainer, $('div'));
 		btnWrap.style.cssText = `padding:12px 20px;`;
