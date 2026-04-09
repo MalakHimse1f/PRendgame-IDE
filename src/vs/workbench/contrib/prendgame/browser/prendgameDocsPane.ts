@@ -329,14 +329,52 @@ export function renderDocsContent(root: HTMLElement, commandService: { executeCo
 		const attrsSection = append(detailContainer, $('div'));
 		attrsSection.style.cssText = `padding:12px 20px;border-bottom:1px solid ${T.border};display:grid;grid-template-columns:100px 1fr;gap:6px 12px;align-items:center;`;
 
-		// Type (read-only display)
+		// Type (dropdown)
 		const typeLbl2 = append(attrsSection, $('span'));
 		typeLbl2.style.cssText = `font-size:11px;color:${T.textFaint};`;
 		typeLbl2.textContent = 'Type';
-		const typeVal = append(attrsSection, $('span'));
-		const tc2 = TYPE_COLORS[doc.type] || '#666';
-		typeVal.style.cssText = `font-size:11px;padding:2px 8px;border-radius:3px;background:${tc2}20;color:${tc2};font-weight:500;width:fit-content;`;
-		typeVal.textContent = TYPE_LABELS[doc.type] || doc.type;
+		const typeWrap = append(attrsSection, $('div'));
+		typeWrap.style.cssText = 'position:relative;';
+		const typeVal = append(typeWrap, $('span'));
+		let tc2 = TYPE_COLORS[doc.type] || '#666';
+		typeVal.style.cssText = `font-size:11px;padding:2px 8px;border-radius:3px;background:${tc2}20;color:${tc2};font-weight:500;cursor:pointer;`;
+		typeVal.textContent = (TYPE_LABELS[doc.type] || doc.type) + ' \u25BE';
+		const allTypes = Object.keys(TYPE_LABELS);
+		let typeDD: HTMLElement | null = null;
+		typeVal.addEventListener('click', () => {
+			if (typeDD) { typeDD.remove(); typeDD = null; return; }
+			const dd = append(typeWrap, $('div'));
+			typeDD = dd;
+			dd.style.cssText = `position:absolute;top:100%;left:0;margin-top:4px;background:${T.surface};border:1px solid ${T.border};border-radius:${T.radius};padding:4px 0;z-index:1000;min-width:120px;box-shadow:0 4px 12px rgba(0,0,0,0.3);`;
+			for (const typ of allTypes) {
+				const opt = append(dd, $('div'));
+				const otc = TYPE_COLORS[typ] || '#666';
+				const isActive = doc.type === typ;
+				opt.style.cssText = `display:flex;align-items:center;gap:8px;padding:5px 12px;cursor:pointer;font-size:11px;color:${isActive ? T.text : T.textMuted};transition:background 0.1s;`;
+				opt.addEventListener('mouseenter', () => { opt.style.background = T.surfaceHover; });
+				opt.addEventListener('mouseleave', () => { opt.style.background = ''; });
+				const od = append(opt, $('span'));
+				od.style.cssText = `font-size:9px;padding:1px 5px;border-radius:2px;background:${otc}20;color:${otc};font-weight:600;`;
+				od.textContent = TYPE_LABELS[typ] || typ;
+				opt.addEventListener('click', (e) => {
+					e.stopPropagation();
+					doc.type = typ;
+					tc2 = TYPE_COLORS[typ] || '#666';
+					typeVal.style.background = `${tc2}20`;
+					typeVal.style.color = tc2;
+					typeVal.textContent = (TYPE_LABELS[typ] || typ) + ' \u25BE';
+					// Also update the type badge in the header
+					typeBadge.style.background = `${tc2}20`;
+					typeBadge.style.color = tc2;
+					typeBadge.textContent = TYPE_LABELS[typ] || typ;
+					dd.remove();
+					typeDD = null;
+				});
+			}
+			const w = getWindow(typeWrap);
+			const closeFn = (e: Event) => { if (!typeWrap.contains(e.target as Node)) { dd.remove(); typeDD = null; w.document.removeEventListener('click', closeFn); } };
+			setTimeout(() => w.document.addEventListener('click', closeFn), 0);
+		});
 
 		// Priority (dropdown)
 		const prioLbl = append(attrsSection, $('span'));
