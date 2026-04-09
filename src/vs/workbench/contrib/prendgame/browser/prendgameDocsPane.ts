@@ -5,7 +5,8 @@
 
 import { $, append, getWindow } from '../../../../base/browser/dom.js';
 import { T } from './prendgameTheme.js';
-import { getDocs, getLinkedTasks, addLink, isDocLocked, findTask, findTaskGroup, getGroups, PRIORITY_COLORS, PRIORITY_LABELS, TASK_STATUS_COLORS, TASK_STATUS_LABELS, DOC_TYPE_COLORS as TYPE_COLORS, DOC_TYPE_LABELS as TYPE_LABELS, DOC_STATUSES as STATUSES, DOC_STATUS_LABELS as STATUS_LABELS, DOC_STATUS_COLORS as STATUS_COLORS } from './prendgameData.js';
+import { getDocs, getLinkedTasks, addLink, isDocLocked, findTask, findTaskGroup, getGroups, PRIORITY_COLORS, PRIORITY_LABELS, TASK_STATUS_COLORS, TASK_STATUS_LABELS, DOC_TYPE_COLORS as TYPE_COLORS, DOC_TYPE_LABELS as TYPE_LABELS, DOC_STATUSES as STATUSES, DOC_STATUS_LABELS as STATUS_LABELS, DOC_STATUS_COLORS as STATUS_COLORS, IDoc } from './prendgameData.js';
+import { groupItemsBy } from './prendgameViewUtils.js';
 
 export function renderMarkdownToDOM(parent: HTMLElement, text: string): void {
 	const lines = text.split('\n');
@@ -51,6 +52,11 @@ export function renderDocsContent(root: HTMLElement, commandService: { executeCo
 
 	// State
 	let activeFilter = '';
+	let activeStatusFilter = '';
+	let activeOwnerFilter = '';
+	let activeSortField = '';
+	let sortAscending = true;
+	let activeView: 'list' | 'board' | 'cards' = 'list';
 	let activeDocId: string | null = null;
 
 	// Containers for list and detail (swap visibility)
@@ -71,9 +77,40 @@ export function renderDocsContent(root: HTMLElement, commandService: { executeCo
 		renderDetail();
 	}
 
+	// == Filtered/sorted docs helper ==========================================
+	function getFilteredDocs(): IDoc[] {
+		let result = [...docs];
+		if (activeFilter) { result = result.filter(d => d.type === activeFilter); }
+		if (activeStatusFilter) { result = result.filter(d => d.status === activeStatusFilter); }
+		if (activeOwnerFilter) { result = result.filter(d => d.owner === activeOwnerFilter); }
+		if (activeSortField) {
+			result.sort((a, b) => {
+				const va = String(Object.getOwnPropertyDescriptor(a, activeSortField)?.value ?? '').toLowerCase();
+				const vb = String(Object.getOwnPropertyDescriptor(b, activeSortField)?.value ?? '').toLowerCase();
+				const cmp = va < vb ? -1 : va > vb ? 1 : 0;
+				return sortAscending ? cmp : -cmp;
+			});
+		}
+		return result;
+	}
+
 	// == LIST =============================================================
 	function renderList() {
-		// Filter pills
+		// View switcher
+		const viewRow = append(listContainer, $('div'));
+		viewRow.style.cssText = `display:flex;align-items:center;gap:0;padding:8px 20px;border-bottom:1px solid ${T.border};`;
+		const viewLabel = append(viewRow, $('span'));
+		viewLabel.style.cssText = `font-size:11px;color:${T.textFaint};margin-right:8px;`;
+		viewLabel.textContent = 'View';
+		for (const v of ['list', 'board', 'cards'] as const) {
+			const vBtn = append(viewRow, $('span'));
+			const isActive = activeView === v;
+			vBtn.style.cssText = `font-size:11px;padding:3px 10px;cursor:pointer;font-weight:500;transition:all 0.12s;border-bottom:2px solid ${isActive ? T.accent : 'transparent'};color:${isActive ? T.text : T.textFaint};`;
+			vBtn.textContent = v.charAt(0).toUpperCase() + v.slice(1);
+			vBtn.addEventListener('click', () => { activeView = v; rebuildList(); });
+		}
+
+		// Filter row: type pills + status + owner + sort
 		const filterRow = append(listContainer, $('div'));
 		filterRow.style.cssText = `display:flex;gap:6px;padding:8px 20px;border-bottom:1px solid ${T.border};flex-wrap:wrap;align-items:center;`;
 
@@ -83,22 +120,100 @@ export function renderDocsContent(root: HTMLElement, commandService: { executeCo
 			const tc = filterType ? (TYPE_COLORS[filterType] || '#666') : T.accent;
 			pill.style.cssText = `font-size:11px;padding:3px 10px;border-radius:${T.radiusPill};cursor:pointer;font-weight:500;transition:all 0.12s;background:${isActive ? tc : tc + '15'};color:${isActive ? '#fff' : tc};`;
 			pill.textContent = label;
-			pill.addEventListener('click', () => {
-				activeFilter = filterType;
-				rebuildList();
-			});
+			pill.addEventListener('click', () => { activeFilter = filterType; rebuildList(); });
 		}
 
 		makePill('All', '');
 		const types = [...new Set(docs.map(d => d.type))];
 		for (const type of types) { makePill(TYPE_LABELS[type] || type, type); }
 
-		// Doc rows container
+		// Status filter dropdown
+		const statusSelect = append(filterRow, $('select'));
+		statusSelect.style.cssText = `font-size:11px;padding:3px 6px;border-radius:${T.radiusSm};background:${T.surface};border:1px solid ${T.border};color:${T.textMuted};cursor:pointer;outline:none;`;
+		const statusDefault = append(statusSelect, $('option'));
+		statusDefault.textContent = 'Status';
+		(statusDefault as HTMLOptionElement).value = '';
+		for (const s of STATUSES) {
+			const opt = append(statusSelect, $('option'));
+			opt.textContent = STATUS_LABELS[s] || s;
+			(opt as HTMLOptionElement).value = s;
+		}
+		(statusSelect as HTMLSelectElement).value = activeStatusFilter;
+		statusSelect.addEventListener('change', () => { activeStatusFilter = (statusSelect as HTMLSelectElement).value; rebuildList(); });
+
+		// Owner filter dropdown
+		const owners = [...new Set(docs.map(d => d.owner))];
+		const ownerSelect = append(filterRow, $('select'));
+		ownerSelect.style.cssText = `font-size:11px;padding:3px 6px;border-radius:${T.radiusSm};background:${T.surface};border:1px solid ${T.border};color:${T.textMuted};cursor:pointer;outline:none;`;
+		const ownerDefault = append(ownerSelect, $('option'));
+		ownerDefault.textContent = 'Owner';
+		(ownerDefault as HTMLOptionElement).value = '';
+		for (const o of owners) {
+			const opt = append(ownerSelect, $('option'));
+			opt.textContent = o;
+			(opt as HTMLOptionElement).value = o;
+		}
+		(ownerSelect as HTMLSelectElement).value = activeOwnerFilter;
+		ownerSelect.addEventListener('change', () => { activeOwnerFilter = (ownerSelect as HTMLSelectElement).value; rebuildList(); });
+
+		// Sort dropdown
+		const sortSelect = append(filterRow, $('select'));
+		sortSelect.style.cssText = `font-size:11px;padding:3px 6px;border-radius:${T.radiusSm};background:${T.surface};border:1px solid ${T.border};color:${T.textMuted};cursor:pointer;outline:none;margin-left:auto;`;
+		const sortOptions = [['', 'Sort by...'], ['title', 'Title'], ['updatedAt', 'Date'], ['status', 'Status'], ['type', 'Type'], ['priority', 'Priority']];
+		for (const [val, label] of sortOptions) {
+			const opt = append(sortSelect, $('option'));
+			opt.textContent = label + (activeSortField === val ? (sortAscending ? ' \u2191' : ' \u2193') : '');
+			(opt as HTMLOptionElement).value = val;
+		}
+		(sortSelect as HTMLSelectElement).value = activeSortField;
+		sortSelect.addEventListener('change', () => {
+			const newField = (sortSelect as HTMLSelectElement).value;
+			if (newField === activeSortField) { sortAscending = !sortAscending; }
+			else { activeSortField = newField; sortAscending = true; }
+			rebuildList();
+		});
+
+		// Clear filters button
+		if (activeFilter || activeStatusFilter || activeOwnerFilter || activeSortField) {
+			const clearBtn = append(filterRow, $('span'));
+			clearBtn.style.cssText = `font-size:10px;padding:3px 8px;border-radius:${T.radiusPill};cursor:pointer;color:${T.textFaint};transition:color 0.12s;`;
+			clearBtn.textContent = '\u2715 Clear';
+			clearBtn.addEventListener('mouseenter', () => { clearBtn.style.color = T.text; });
+			clearBtn.addEventListener('mouseleave', () => { clearBtn.style.color = T.textFaint; });
+			clearBtn.addEventListener('click', () => { activeFilter = ''; activeStatusFilter = ''; activeOwnerFilter = ''; activeSortField = ''; rebuildList(); });
+		}
+
+		// Get filtered docs
+		const filtered = getFilteredDocs();
+
+		// Render based on active view
+		if (activeView === 'board') {
+			renderBoardView(filtered);
+		} else if (activeView === 'cards') {
+			renderCardsView(filtered);
+		} else {
+			renderListView(filtered);
+		}
+
+		// New doc button
+		const wrap = append(listContainer, $('div'));
+		wrap.style.cssText = 'padding:12px 20px;';
+		const btn = append(wrap, $('div'));
+		btn.style.cssText = `display:flex;align-items:center;justify-content:center;padding:7px;border-radius:${T.radius};border:1px dashed ${T.border};cursor:pointer;font-size:11px;font-weight:500;color:${T.textMuted};transition:all 0.15s;`;
+		btn.textContent = '+ New Document';
+		btn.addEventListener('mouseenter', () => { btn.style.color = T.text; btn.style.borderColor = T.accent; btn.style.background = T.surfaceHover; });
+		btn.addEventListener('mouseleave', () => { btn.style.color = T.textMuted; btn.style.borderColor = T.border; btn.style.background = ''; });
+		btn.addEventListener('click', () => {
+			const id = `doc-new-${Date.now()}`;
+			docs.unshift({ id, title: 'Untitled Document', type: 'prd', status: 'draft', priority: 'medium', owner: 'Alex Chen', ownerInitials: 'AC', ownerColor: '#6366f1', tasksTotal: 0, tasksDone: 0, updatedAt: 'Just now', content: '## Overview\n\nDescribe the purpose of this document.\n\n## Goals\n\n1. \n2. \n3. \n' });
+			showDetail(id);
+		});
+	}
+
+	// -- List view ------------------------------------------------------------
+	function renderListView(filtered: IDoc[]) {
 		const rowsContainer = append(listContainer, $('div'));
-
-		for (const doc of docs) {
-			if (activeFilter && doc.type !== activeFilter) { continue; }
-
+		for (const doc of filtered) {
 			const row = append(rowsContainer, $('div'));
 			row.style.cssText = `display:flex;align-items:center;gap:8px;padding:8px 20px;cursor:pointer;transition:background 0.1s;border-bottom:1px solid ${T.borderSubtle};`;
 			row.addEventListener('mouseenter', () => { row.style.background = T.surfaceHover; });
@@ -134,20 +249,112 @@ export function renderDocsContent(root: HTMLElement, commandService: { executeCo
 			av.style.cssText = `display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;font-size:8px;font-weight:600;color:#fff;flex-shrink:0;background:${doc.ownerColor};`;
 			av.textContent = doc.ownerInitials;
 		}
+	}
 
-		// New doc button
-		const wrap = append(listContainer, $('div'));
-		wrap.style.cssText = 'padding:12px 20px;';
-		const btn = append(wrap, $('div'));
-		btn.style.cssText = `display:flex;align-items:center;justify-content:center;padding:7px;border-radius:${T.radius};border:1px dashed ${T.border};cursor:pointer;font-size:11px;font-weight:500;color:${T.textMuted};transition:all 0.15s;`;
-		btn.textContent = '+ New Document';
-		btn.addEventListener('mouseenter', () => { btn.style.color = T.text; btn.style.borderColor = T.accent; btn.style.background = T.surfaceHover; });
-		btn.addEventListener('mouseleave', () => { btn.style.color = T.textMuted; btn.style.borderColor = T.border; btn.style.background = ''; });
-		btn.addEventListener('click', () => {
-			const id = `doc-new-${Date.now()}`;
-			docs.unshift({ id, title: 'Untitled Document', type: 'prd', status: 'draft', priority: 'medium', owner: 'Alex Chen', ownerInitials: 'AC', ownerColor: '#6366f1', tasksTotal: 0, tasksDone: 0, updatedAt: 'Just now', content: '## Overview\n\nDescribe the purpose of this document.\n\n## Goals\n\n1. \n2. \n3. \n' });
-			showDetail(id);
-		});
+	// -- Board view -----------------------------------------------------------
+	function renderBoardView(filtered: IDoc[]) {
+		const viewGroups = groupItemsBy(filtered, 'status', STATUS_LABELS, STATUS_COLORS, STATUSES);
+		const boardWrap = append(listContainer, $('div'));
+		boardWrap.style.cssText = 'padding:8px 0;';
+
+		for (const vg of viewGroups) {
+			const hdr = append(boardWrap, $('div'));
+			hdr.style.cssText = `display:flex;align-items:center;gap:8px;padding:8px 20px;cursor:pointer;user-select:none;transition:background 0.1s;`;
+			hdr.addEventListener('mouseenter', () => { hdr.style.background = T.surfaceHover; });
+			hdr.addEventListener('mouseleave', () => { hdr.style.background = ''; });
+
+			const twistie = append(hdr, $('span'));
+			twistie.style.cssText = `width:16px;font-size:10px;text-align:center;color:${T.textFaint};transition:transform 0.15s ease;transform:rotate(90deg);`;
+			twistie.textContent = '\u25B6';
+
+			const sq = append(hdr, $('span'));
+			const sc = vg.color || '#52525b';
+			sq.style.cssText = `width:8px;height:8px;border-radius:2px;background:${sc};flex-shrink:0;`;
+
+			const lbl = append(hdr, $('span'));
+			lbl.style.cssText = `font-size:12px;font-weight:600;color:${T.textMuted};text-transform:uppercase;letter-spacing:0.06em;`;
+			lbl.textContent = vg.name;
+
+			const bdg = append(hdr, $('span'));
+			bdg.style.cssText = `font-size:10px;background:${T.border};color:${T.textMuted};padding:1px 7px;border-radius:${T.radiusPill};margin-left:auto;`;
+			bdg.textContent = String(vg.items.length);
+
+			const cards = append(boardWrap, $('div'));
+			cards.style.cssText = 'padding:2px 0;';
+
+			hdr.addEventListener('click', () => {
+				const hidden = cards.style.display === 'none';
+				cards.style.display = hidden ? '' : 'none';
+				twistie.style.transform = hidden ? 'rotate(90deg)' : 'rotate(0deg)';
+			});
+
+			for (const doc of vg.items) {
+				const row = append(cards, $('div'));
+				row.style.cssText = `display:flex;align-items:center;gap:8px;padding:6px 20px 6px 42px;cursor:pointer;transition:background 0.1s;border-radius:${T.radiusSm};margin:0 4px;`;
+				row.addEventListener('mouseenter', () => { row.style.background = T.surfaceHover; });
+				row.addEventListener('mouseleave', () => { row.style.background = ''; });
+				row.addEventListener('click', () => { showDetail(doc.id); });
+
+				const tc = TYPE_COLORS[doc.type] || '#666';
+				const badge = append(row, $('span'));
+				badge.style.cssText = `font-size:9px;font-weight:600;padding:2px 6px;border-radius:3px;background:${tc}20;color:${tc};text-transform:uppercase;`;
+				badge.textContent = TYPE_LABELS[doc.type] || doc.type;
+
+				const title = append(row, $('span'));
+				title.style.cssText = `font-size:13px;color:${T.text};flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;`;
+				title.textContent = doc.title;
+
+				const av = append(row, $('span'));
+				av.style.cssText = `display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;font-size:7px;font-weight:600;color:#fff;background:${doc.ownerColor};flex-shrink:0;`;
+				av.textContent = doc.ownerInitials;
+			}
+
+			const sep = append(boardWrap, $('div'));
+			sep.style.cssText = `height:1px;background:${T.borderSubtle};margin:0 20px;`;
+		}
+	}
+
+	// -- Cards view -----------------------------------------------------------
+	function renderCardsView(filtered: IDoc[]) {
+		const grid = append(listContainer, $('div'));
+		grid.style.cssText = `display:grid;grid-template-columns:1fr;gap:8px;padding:12px 20px;`;
+
+		for (const doc of filtered) {
+			const card = append(grid, $('div'));
+			card.style.cssText = `padding:12px;border:1px solid ${T.border};border-radius:${T.radius};cursor:pointer;transition:all 0.12s;`;
+			card.addEventListener('mouseenter', () => { card.style.borderColor = T.accent; card.style.background = T.surfaceHover; });
+			card.addEventListener('mouseleave', () => { card.style.borderColor = T.border; card.style.background = ''; });
+			card.addEventListener('click', () => { showDetail(doc.id); });
+
+			const topRow = append(card, $('div'));
+			topRow.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:6px;';
+
+			const tc = TYPE_COLORS[doc.type] || '#666';
+			const badge = append(topRow, $('span'));
+			badge.style.cssText = `font-size:9px;font-weight:600;padding:2px 6px;border-radius:3px;background:${tc}20;color:${tc};text-transform:uppercase;`;
+			badge.textContent = TYPE_LABELS[doc.type] || doc.type;
+
+			const sc = STATUS_COLORS[doc.status] || '#666';
+			const statusPill = append(topRow, $('span'));
+			statusPill.style.cssText = `font-size:10px;padding:2px 6px;border-radius:${T.radiusPill};background:${sc}20;color:${sc};font-weight:500;`;
+			statusPill.textContent = STATUS_LABELS[doc.status] || doc.status;
+
+			const av = append(topRow, $('span'));
+			av.style.cssText = `display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;font-size:7px;font-weight:600;color:#fff;background:${doc.ownerColor};margin-left:auto;flex-shrink:0;`;
+			av.textContent = doc.ownerInitials;
+
+			const title = append(card, $('div'));
+			title.style.cssText = `font-size:13px;font-weight:600;color:${T.text};margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;`;
+			title.textContent = doc.title;
+
+			// Content preview (first 2 lines)
+			const preview = doc.content.split('\n').filter(l => l.trim() && !l.startsWith('#')).slice(0, 2).join(' ');
+			if (preview) {
+				const previewEl = append(card, $('div'));
+				previewEl.style.cssText = `font-size:11px;color:${T.textFaint};line-height:1.4;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;`;
+				previewEl.textContent = preview;
+			}
+		}
 	}
 
 	function rebuildList() {

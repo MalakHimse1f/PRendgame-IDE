@@ -5,8 +5,9 @@
 
 import { $, append, getWindow } from '../../../../base/browser/dom.js';
 import { T } from './prendgameTheme.js';
-import { getGroups, getMembers, getDocs, findTask, findTaskGroup, getDueDateStyle, getLinkedDocs, getLinkedTasks, addLink, getReadyForDevDocs, createTasksFromDoc, PRIORITY_COLORS, TASK_STATUS_COLORS as STATUS_COLORS, DOC_TYPE_COLORS, DOC_TYPE_LABELS, DOC_STATUS_COLORS, DOC_STATUS_LABELS, ITask, ISubtask, IDoc } from './prendgameData.js';
+import { getGroups, getMembers, getDocs, findTask, findTaskGroup, getDueDateStyle, getLinkedDocs, getLinkedTasks, addLink, getReadyForDevDocs, createTasksFromDoc, PRIORITY_COLORS, PRIORITY_LABELS, TASK_STATUS_COLORS as STATUS_COLORS, TASK_STATUS_LABELS, DOC_TYPE_COLORS, DOC_TYPE_LABELS, DOC_STATUS_COLORS, DOC_STATUS_LABELS, ITask, ISubtask, IDoc } from './prendgameData.js';
 import { renderMarkdownToDOM } from './prendgameDocsPane.js';
+import { groupItemsBy, IViewGroup } from './prendgameViewUtils.js';
 
 // -- Render -------------------------------------------------------------------
 
@@ -864,31 +865,96 @@ export function renderBoardContent(root: HTMLElement, commandService: { executeC
 		}
 	});
 
-	// == Summary pills ========================================================
-	const pills = append(boardContainer, $('div'));
-	pills.style.cssText = `display:flex;gap:8px;padding:10px 20px;border-bottom:1px solid ${T.border};flex-wrap:wrap;align-items:center;`;
-
-	const totalTasks = groups.reduce((sum, g) => sum + g.tasks.length, 0);
-
-	for (const g of groups) {
-		if (g.tasks.length === 0) { continue; }
-		const pill = append(pills, $('span'));
-		const sc = STATUS_COLORS[g.id] || '#52525b';
-		pill.style.cssText = `display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:3px 10px;border-radius:${T.radiusPill};background:${sc}15;color:${sc};font-weight:500;letter-spacing:0;`;
-
-		const pillDot = append(pill, $('span'));
-		pillDot.style.cssText = `width:5px;height:5px;border-radius:50%;background:${sc};`;
-		pill.appendChild(document.createTextNode(`${g.tasks.length} ${g.name.toLowerCase()}`));
+	// == Group by =============================================================
+	let activeGroupBy = 'status';
+	const groupByRow = append(boardContainer, $('div'));
+	groupByRow.style.cssText = `display:flex;align-items:center;gap:8px;padding:8px 20px;border-bottom:1px solid ${T.border};`;
+	const groupByLabel = append(groupByRow, $('span'));
+	groupByLabel.style.cssText = `font-size:11px;color:${T.textFaint};`;
+	groupByLabel.textContent = 'Group by';
+	const groupByOptions = ['status', 'assignee', 'priority'];
+	const groupByLabelsMap: Record<string, string> = { status: 'Status', assignee: 'Assignee', priority: 'Priority' };
+	const groupByBtns: HTMLElement[] = [];
+	for (const opt of groupByOptions) {
+		const btn = append(groupByRow, $('span'));
+		groupByBtns.push(btn);
+		const isActive = opt === activeGroupBy;
+		btn.style.cssText = `font-size:11px;padding:3px 10px;border-radius:${T.radiusPill};cursor:pointer;font-weight:500;transition:all 0.12s;background:${isActive ? T.accent : T.accent + '15'};color:${isActive ? '#fff' : T.accent};`;
+		btn.textContent = groupByLabelsMap[opt] || opt;
+		btn.addEventListener('click', () => {
+			if (activeGroupBy === opt) { return; }
+			activeGroupBy = opt;
+			rebuildBoard();
+		});
 	}
 
-	const totalLabel = append(pills, $('span'));
-	totalLabel.style.cssText = `font-size:11px;color:${T.textFaint};margin-left:auto;`;
-	totalLabel.textContent = `${totalTasks} total`;
+	// == Dynamic board content (rebuilt on group-by change) ====================
+	const dynamicContainer = append(boardContainer, $('div'));
 
-	// == Incoming from Product ================================================
-	const readyDocs = getReadyForDevDocs();
-	if (readyDocs.length > 0) {
-		const incomingSection = append(boardContainer, $('div'));
+	function rebuildBoard() {
+		dynamicContainer.textContent = '';
+		taskRows.length = 0;
+		badges.length = 0;
+		twisties.length = 0;
+		cardsContainers.length = 0;
+		dropZones.length = 0;
+
+		// Update group-by button styles
+		for (let i = 0; i < groupByBtns.length; i++) {
+			const isActive = groupByOptions[i] === activeGroupBy;
+			groupByBtns[i].style.background = isActive ? T.accent : T.accent + '15';
+			groupByBtns[i].style.color = isActive ? '#fff' : T.accent;
+		}
+
+		// Build view groups based on activeGroupBy
+		let viewGroups: IViewGroup<ITask>[];
+		const allTasks: ITask[] = [];
+		for (const g of groups) { allTasks.push(...g.tasks); }
+
+		if (activeGroupBy === 'assignee') {
+			const memberLabels: Record<string, string> = {};
+			const memberColors: Record<string, string> = {};
+			for (const m of members) { memberLabels[m.initials] = m.name; memberColors[m.initials] = m.color; }
+			viewGroups = groupItemsBy(allTasks, 'initials', memberLabels, memberColors);
+		} else if (activeGroupBy === 'priority') {
+			viewGroups = groupItemsBy(allTasks, 'priority', PRIORITY_LABELS, PRIORITY_COLORS, ['critical', 'high', 'medium', 'low']);
+		} else {
+			// Status: use the original groups structure (preserves drag-drop group IDs)
+			viewGroups = groups.map(g => ({ key: g.id, name: g.name, items: g.tasks, color: STATUS_COLORS[g.id] }));
+		}
+
+		// Summary pills
+		const pills = append(dynamicContainer, $('div'));
+		pills.style.cssText = `display:flex;gap:8px;padding:10px 20px;border-bottom:1px solid ${T.border};flex-wrap:wrap;align-items:center;`;
+		for (const vg of viewGroups) {
+			if (vg.items.length === 0) { continue; }
+			const pill = append(pills, $('span'));
+			const sc = vg.color || '#52525b';
+			pill.style.cssText = `display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:3px 10px;border-radius:${T.radiusPill};background:${sc}15;color:${sc};font-weight:500;letter-spacing:0;`;
+			const pillDot = append(pill, $('span'));
+			pillDot.style.cssText = `width:5px;height:5px;border-radius:50%;background:${sc};`;
+			pill.appendChild(document.createTextNode(`${vg.items.length} ${vg.name.toLowerCase()}`));
+		}
+		const totalLabel = append(pills, $('span'));
+		totalLabel.style.cssText = `font-size:11px;color:${T.textFaint};margin-left:auto;`;
+		totalLabel.textContent = `${allTasks.length} total`;
+
+		// Incoming from Product (only in status view)
+		if (activeGroupBy === 'status') {
+			renderIncoming(dynamicContainer);
+		}
+
+		// Render groups
+		for (const vg of viewGroups) {
+			const collapsed = activeGroupBy === 'status' ? (groups.find(g => g.id === vg.key)?.collapsed || false) : false;
+			renderGroupSection(dynamicContainer, vg, collapsed);
+		}
+	}
+
+	function renderIncoming(container: HTMLElement) {
+		const readyDocs = getReadyForDevDocs();
+		if (readyDocs.length === 0) { return; }
+		const incomingSection = append(container, $('div'));
 		incomingSection.style.cssText = `padding:10px 20px;border-bottom:1px solid ${T.border};background:${T.accent}08;border-left:3px solid ${T.accent};`;
 		const incomingHeader = append(incomingSection, $('div'));
 		incomingHeader.style.cssText = `font-size:11px;font-weight:600;color:${T.accent};text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;`;
@@ -920,87 +986,75 @@ export function renderBoardContent(root: HTMLElement, commandService: { executeC
 					createBtn.textContent = `${newTasks.length} tasks created`;
 					createBtn.style.background = '#22c55e';
 					createBtn.style.cursor = 'default';
-					// Re-render the board to show new tasks
-					const todoContainer = cardsContainers.find(c => c.groupId === 'todo');
-					const todoBadge = badges.find(b => b.groupId === 'todo');
-					const todoGroup = groups.find(g => g.id === 'todo');
-					if (todoContainer && todoGroup) {
-						for (const nt of newTasks) { renderTaskRow(todoContainer.el, nt, 'todo'); }
-					}
-					if (todoBadge && todoGroup) { todoBadge.el.textContent = String(todoGroup.tasks.length); }
+					rebuildBoard();
 				}
 			});
 		}
 	}
 
-	// == Groups ===============================================================
-	for (const group of groups) {
-		const hdr = append(boardContainer, $('div'));
+	function renderGroupSection(container: HTMLElement, vg: IViewGroup<ITask>, collapsed: boolean) {
+		const hdr = append(container, $('div'));
 		hdr.style.cssText = `display:flex;align-items:center;gap:8px;padding:8px 20px;cursor:pointer;user-select:none;transition:background 0.1s;`;
 		hdr.addEventListener('mouseenter', () => { hdr.style.background = T.surfaceHover; });
 		hdr.addEventListener('mouseleave', () => { hdr.style.background = ''; });
 
-		// Twistie
 		const twistie = append(hdr, $('span'));
 		twistie.style.cssText = `width:16px;font-size:10px;text-align:center;color:${T.textFaint};transition:transform 0.15s ease;`;
 		twistie.textContent = '\u25B6';
-		if (!group.collapsed) { twistie.style.transform = 'rotate(90deg)'; }
-		twisties.push({ el: twistie, groupId: group.id });
+		if (!collapsed) { twistie.style.transform = 'rotate(90deg)'; }
+		twisties.push({ el: twistie, groupId: vg.key });
 
-		// Status square
-		const statusSquare = append(hdr, $('span'));
-		const sc = STATUS_COLORS[group.id] || '#52525b';
-		statusSquare.style.cssText = `width:8px;height:8px;border-radius:2px;background:${sc};flex-shrink:0;`;
+		const colorSquare = append(hdr, $('span'));
+		const sc = vg.color || '#52525b';
+		colorSquare.style.cssText = `width:8px;height:8px;border-radius:2px;background:${sc};flex-shrink:0;`;
 
-		// Label
 		const label = append(hdr, $('span'));
 		label.style.cssText = `font-size:12px;font-weight:600;color:${T.textMuted};text-transform:uppercase;letter-spacing:0.06em;`;
-		label.textContent = group.name;
+		label.textContent = vg.name;
 
-		// Count badge
 		const badge = append(hdr, $('span'));
 		badge.style.cssText = `font-size:10px;background:${T.border};color:${T.textMuted};padding:1px 7px;border-radius:${T.radiusPill};margin-left:auto;min-width:20px;text-align:center;font-weight:500;`;
-		badge.textContent = String(group.tasks.length);
-		badges.push({ el: badge, groupId: group.id });
+		badge.textContent = String(vg.items.length);
+		badges.push({ el: badge, groupId: vg.key });
 
-		// Drop zone
-		const dz = append(boardContainer, $('div'));
-		dz.style.cssText = `height:0;transition:height 0.2s ease,opacity 0.2s;overflow:hidden;opacity:0;`;
-		dropZones.push({ el: dz, groupId: group.id });
+		if (activeGroupBy === 'status') {
+			const dz = append(container, $('div'));
+			dz.style.cssText = `height:0;transition:height 0.2s ease,opacity 0.2s;overflow:hidden;opacity:0;`;
+			dropZones.push({ el: dz, groupId: vg.key });
+			dz.addEventListener('dragover', (e) => {
+				e.preventDefault();
+				if (e.dataTransfer) { e.dataTransfer.dropEffect = 'move'; }
+				dz.style.background = `${T.accent}30`;
+			});
+			dz.addEventListener('dragleave', () => { dz.style.background = T.accentMuted; });
+			dz.addEventListener('drop', (e) => {
+				e.preventDefault();
+				if (dragTaskId) { moveTask(dragTaskId, vg.key); }
+				clearDropHighlights();
+			});
+		}
 
-		dz.addEventListener('dragover', (e) => {
-			e.preventDefault();
-			if (e.dataTransfer) { e.dataTransfer.dropEffect = 'move'; }
-			dz.style.background = `${T.accent}30`;
-		});
-		dz.addEventListener('dragleave', () => { dz.style.background = T.accentMuted; });
-		dz.addEventListener('drop', (e) => {
-			e.preventDefault();
-			if (dragTaskId) { moveTask(dragTaskId, group.id); }
-			clearDropHighlights();
-		});
-
-		// Cards container
-		const cards = append(boardContainer, $('div'));
+		const cards = append(container, $('div'));
 		cards.style.cssText = 'padding:2px 0;';
-		if (group.collapsed) { cards.style.display = 'none'; }
-		cardsContainers.push({ el: cards, groupId: group.id });
+		if (collapsed) { cards.style.display = 'none'; }
+		cardsContainers.push({ el: cards, groupId: vg.key });
 
-		// Separator
-		const sep = append(boardContainer, $('div'));
+		const sep = append(container, $('div'));
 		sep.style.cssText = `height:1px;background:${T.borderSubtle};margin:0 20px;`;
 
-		// Toggle
 		hdr.addEventListener('click', () => {
 			const wasHidden = cards.style.display === 'none';
 			cards.style.display = wasHidden ? '' : 'none';
 			twistie.style.transform = wasHidden ? 'rotate(90deg)' : 'rotate(0deg)';
 		});
 
-		for (const task of group.tasks) {
-			renderTaskRow(cards, task, group.id);
+		for (const task of vg.items) {
+			renderTaskRow(cards, task, vg.key);
 		}
 	}
+
+	// Initial board render
+	rebuildBoard();
 
 	// == Sprint progress ======================================================
 	const progressSection = append(boardContainer, $('div'));
@@ -1010,8 +1064,9 @@ export function renderBoardContent(root: HTMLElement, commandService: { executeC
 	progressLabel.style.cssText = `font-size:11px;font-weight:600;color:${T.textMuted};text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px;`;
 	progressLabel.textContent = 'Sprint Progress';
 
+	const allTaskCount = groups.reduce((sum, g) => sum + g.tasks.length, 0);
 	const doneTasks = groups.find(g => g.id === 'done')?.tasks.length || 0;
-	const pct = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
+	const pct = allTaskCount > 0 ? Math.round((doneTasks / allTaskCount) * 100) : 0;
 
 	const barBg = append(progressSection, $('div'));
 	barBg.style.cssText = `height:6px;border-radius:3px;background:${T.border};overflow:hidden;margin-bottom:6px;`;
@@ -1021,7 +1076,7 @@ export function renderBoardContent(root: HTMLElement, commandService: { executeC
 
 	const barText = append(progressSection, $('div'));
 	barText.style.cssText = `font-size:11px;color:${T.textFaint};`;
-	barText.textContent = `${doneTasks} of ${totalTasks} complete (${pct}%)`;
+	barText.textContent = `${doneTasks} of ${allTaskCount} complete (${pct}%)`;
 
 	// == Action buttons =======================================================
 	const actions = append(boardContainer, $('div'));
@@ -1031,8 +1086,8 @@ export function renderBoardContent(root: HTMLElement, commandService: { executeC
 		const b = append(actions, $('div'));
 		const bg = isPrimary ? T.accent : 'transparent';
 		const fg = isPrimary ? '#fff' : T.textMuted;
-		const border = isPrimary ? T.accent : T.border;
-		b.style.cssText = `flex:1;display:flex;align-items:center;justify-content:center;padding:7px;border-radius:${T.radius};border:1px solid ${border};cursor:pointer;font-size:11px;font-weight:500;color:${fg};background:${bg};transition:all 0.15s;letter-spacing:0;`;
+		const bdr = isPrimary ? T.accent : T.border;
+		b.style.cssText = `flex:1;display:flex;align-items:center;justify-content:center;padding:7px;border-radius:${T.radius};border:1px solid ${bdr};cursor:pointer;font-size:11px;font-weight:500;color:${fg};background:${bg};transition:all 0.15s;letter-spacing:0;`;
 		b.textContent = btnLabel;
 		b.addEventListener('mouseenter', () => {
 			if (isPrimary) { b.style.opacity = '0.85'; }
@@ -1040,7 +1095,7 @@ export function renderBoardContent(root: HTMLElement, commandService: { executeC
 		});
 		b.addEventListener('mouseleave', () => {
 			if (isPrimary) { b.style.opacity = '1'; }
-			else { b.style.color = fg; b.style.borderColor = border; b.style.background = 'transparent'; }
+			else { b.style.color = fg; b.style.borderColor = bdr; b.style.background = 'transparent'; }
 		});
 		b.addEventListener('click', () => { commandService.executeCommand(command); });
 	};
