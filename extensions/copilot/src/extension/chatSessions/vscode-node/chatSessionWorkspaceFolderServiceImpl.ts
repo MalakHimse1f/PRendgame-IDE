@@ -12,6 +12,7 @@ import { DiffChange } from '../../../platform/git/vscode/git';
 import { ILogService } from '../../../platform/log/common/logService';
 import { SequencerByKey } from '../../../util/vs/base/common/async';
 import { Disposable } from '../../../util/vs/base/common/lifecycle';
+import { ResourceMap } from '../../../util/vs/base/common/map';
 import * as path from '../../../util/vs/base/common/path';
 import { generateUuid } from '../../../util/vs/base/common/uuid';
 import { IChatSessionMetadataStore, RepositoryProperties, WorkspaceFolderEntry } from '../common/chatSessionMetadataStore';
@@ -29,6 +30,7 @@ export class ChatSessionWorkspaceFolderService extends Disposable implements ICh
 
 	private readonly workspaceState = new Map<string, WorkspaceFolderEntry>();
 	private readonly workspaceFolderChanges = new Map<string, ChatSessionWorktreeFile[]>();
+	private readonly sessionsAssociatedWithFolders = new ResourceMap<Set<string>>();
 
 	private readonly workspaceChangesSequencer = new SequencerByKey<string>();
 
@@ -43,6 +45,7 @@ export class ChatSessionWorkspaceFolderService extends Disposable implements ICh
 
 	async deleteTrackedWorkspaceFolder(sessionId: string): Promise<void> {
 		this.workspaceState.delete(sessionId);
+		this.workspaceFolderChanges.delete(sessionId);
 		await this.metadataStore.deleteSessionMetadata(sessionId);
 	}
 
@@ -100,6 +103,11 @@ export class ChatSessionWorkspaceFolderService extends Disposable implements ICh
 			}
 
 			const repository = await this.gitService.getRepository(vscode.Uri.file(repositoryProperties.repositoryPath));
+			if (repository) {
+				const sessionIds = this.sessionsAssociatedWithFolders.get(repository.rootUri) ?? new Set<string>();
+				sessionIds.add(sessionId);
+				this.sessionsAssociatedWithFolders.set(repository.rootUri, sessionIds);
+			}
 			if (!repository?.changes) {
 				this.logService.warn(`[ChatSessionWorkspaceFolderService][getWorkspaceChanges] No repository found for session ${sessionId}`);
 				this.workspaceFolderChanges.set(sessionId, []);
@@ -178,7 +186,18 @@ export class ChatSessionWorkspaceFolderService extends Disposable implements ICh
 		});
 	}
 
-	clearWorkspaceChanges(sessionId: string): void {
-		this.workspaceFolderChanges.delete(sessionId);
+	clearWorkspaceChanges(sessionId: string): string[];
+	clearWorkspaceChanges(folderUri: vscode.Uri): string[];
+	clearWorkspaceChanges(sessionIdOrFolderUri: string | vscode.Uri): string[] {
+		const sessionIds = typeof sessionIdOrFolderUri === 'string' ? [sessionIdOrFolderUri] : this.getAssociatedSessions(sessionIdOrFolderUri);
+		for (const sessionId of sessionIds) {
+			this.workspaceFolderChanges.delete(sessionId);
+		}
+		return sessionIds;
+	}
+
+	getAssociatedSessions(folderUri: vscode.Uri): string[] {
+		const folderSessionIds = this.sessionsAssociatedWithFolders.get(folderUri) ?? new Set<string>();
+		return Array.from(folderSessionIds);
 	}
 }
