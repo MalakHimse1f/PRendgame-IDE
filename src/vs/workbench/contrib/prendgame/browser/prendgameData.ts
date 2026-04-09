@@ -12,6 +12,7 @@ export interface ITask { id: string; title: string; priority: string; initials: 
 export interface IGroup { id: string; name: string; tasks: ITask[]; collapsed: boolean }
 export interface IDoc { id: string; title: string; type: string; status: string; priority: string; owner: string; ownerInitials: string; ownerColor: string; tasksTotal: number; tasksDone: number; updatedAt: string; content: string }
 export interface ITeamMember { id: string; name: string; initials: string; color: string; role: string }
+export interface ILink { fromType: 'task' | 'doc'; fromId: string; toType: 'task' | 'doc'; toId: string }
 
 // --Events -------------------------------------------------------------------
 
@@ -180,6 +181,77 @@ const _members: ITeamMember[] = [
 	{ id: 'user-006', name: 'Riley Brooks', initials: 'RB', color: '#ef4444', role: 'Junior Eng' },
 	{ id: 'user-007', name: 'Avery Quinn', initials: 'AQ', color: '#ec4899', role: 'QA' },
 ];
+
+// -- Links --------------------------------------------------------------------
+
+const _links: ILink[] = [
+	// PRD v1 (Core Task Management) <-> PRE-3, PRE-4, PRE-5, PRE-7
+	{ fromType: 'doc', fromId: 'doc-prd-v1', toType: 'task', toId: 'PRE-3' },
+	{ fromType: 'doc', fromId: 'doc-prd-v1', toType: 'task', toId: 'PRE-4' },
+	{ fromType: 'doc', fromId: 'doc-prd-v1', toType: 'task', toId: 'PRE-5' },
+	{ fromType: 'doc', fromId: 'doc-prd-v1', toType: 'task', toId: 'PRE-7' },
+	// Cloud Sync PRD <-> PRE-6, PRE-8
+	{ fromType: 'doc', fromId: 'doc-prd-v4', toType: 'task', toId: 'PRE-6' },
+	{ fromType: 'doc', fromId: 'doc-prd-v4', toType: 'task', toId: 'PRE-8' },
+	// Auth spec <-> PRE-9
+	{ fromType: 'doc', fromId: 'doc-spec-auth', toType: 'task', toId: 'PRE-9' },
+];
+
+export function getLinkedDocs(taskId: string): IDoc[] {
+	const docIds = _links
+		.filter(l => (l.fromType === 'task' && l.fromId === taskId && l.toType === 'doc') ||
+			(l.toType === 'task' && l.toId === taskId && l.fromType === 'doc'))
+		.map(l => l.fromType === 'doc' ? l.fromId : l.toId);
+	return docIds.map(id => _docs.find(d => d.id === id)).filter((d): d is IDoc => d !== undefined);
+}
+
+export function getLinkedTasks(docId: string): ITask[] {
+	const taskIds = _links
+		.filter(l => (l.fromType === 'doc' && l.fromId === docId && l.toType === 'task') ||
+			(l.toType === 'doc' && l.toId === docId && l.fromType === 'task'))
+		.map(l => l.fromType === 'task' ? l.fromId : l.toId);
+	return taskIds.map(id => findTask(id)).filter((t): t is ITask => t !== undefined);
+}
+
+export function addLink(link: ILink): void {
+	const exists = _links.some(l =>
+		l.fromType === link.fromType && l.fromId === link.fromId &&
+		l.toType === link.toType && l.toId === link.toId
+	);
+	if (!exists) {
+		_links.push(link);
+		_onDataChanged.fire();
+	}
+}
+
+export function isDocLocked(docId: string): boolean {
+	const linkedTasks = getLinkedTasks(docId);
+	const lockedStatuses = ['in_progress', 'in_review', 'done'];
+	return linkedTasks.some(task => lockedStatuses.includes(findTaskGroup(task.id)));
+}
+
+export function getReadyForDevDocs(): IDoc[] {
+	return _docs.filter(d => d.status === 'ready_for_dev');
+}
+
+export function createTasksFromDoc(docId: string): ITask[] {
+	const doc = _docs.find(d => d.id === docId);
+	if (!doc) { return []; }
+	const nextId = _groups.reduce((max, g) => Math.max(max, ...g.tasks.map(t => parseInt(t.id.replace('PRE-', '')) || 0)), 0) + 1;
+	const newTasks: ITask[] = [
+		{ id: `PRE-${nextId}`, title: `Implement ${doc.title}`, priority: 'high', initials: 'ML', color: '#10b981', tags: ['from-doc'], description: `Auto-created from document: ${doc.title}`, dueDate: '', subtasks: [] },
+		{ id: `PRE-${nextId + 1}`, title: `Write tests for ${doc.title}`, priority: 'medium', initials: 'SR', color: '#f59e0b', tags: ['from-doc'], description: `Test coverage for: ${doc.title}`, dueDate: '', subtasks: [] },
+		{ id: `PRE-${nextId + 2}`, title: `QA review: ${doc.title}`, priority: 'medium', initials: 'AQ', color: '#ec4899', tags: ['qa', 'from-doc'], description: `QA pass for: ${doc.title}`, dueDate: '', subtasks: [] },
+	];
+	const todoGroup = _groups.find(g => g.id === 'todo');
+	if (todoGroup) { todoGroup.tasks.push(...newTasks); }
+	for (const task of newTasks) {
+		_links.push({ fromType: 'doc', fromId: docId, toType: 'task', toId: task.id });
+	}
+	doc.tasksTotal += newTasks.length;
+	_onDataChanged.fire();
+	return newTasks;
+}
 
 // -- Accessors ----------------------------------------------------------------
 

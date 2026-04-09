@@ -5,7 +5,8 @@
 
 import { $, append, getWindow } from '../../../../base/browser/dom.js';
 import { T } from './prendgameTheme.js';
-import { getGroups, getMembers, findTask, findTaskGroup, getDueDateStyle, PRIORITY_COLORS, TASK_STATUS_COLORS as STATUS_COLORS, ITask, ISubtask } from './prendgameData.js';
+import { getGroups, getMembers, getDocs, findTask, findTaskGroup, getDueDateStyle, getLinkedDocs, getLinkedTasks, addLink, getReadyForDevDocs, createTasksFromDoc, PRIORITY_COLORS, TASK_STATUS_COLORS as STATUS_COLORS, DOC_TYPE_COLORS, DOC_TYPE_LABELS, DOC_STATUS_COLORS, DOC_STATUS_LABELS, ITask, ISubtask, IDoc } from './prendgameData.js';
+import { renderMarkdownToDOM } from './prendgameDocsPane.js';
 
 // -- Render -------------------------------------------------------------------
 
@@ -299,6 +300,70 @@ export function renderBoardContent(root: HTMLElement, commandService: { executeC
 			textarea.addEventListener('keydown', (ke) => { if (ke.key === 'Escape') { renderDesc(); } });
 		});
 
+		// Linked Documents
+		const linkedDocs = getLinkedDocs(task.id);
+		const linkedDocsSection = append(detailContainer, $('div'));
+		linkedDocsSection.style.cssText = `padding:14px 20px;border-bottom:1px solid ${T.border};`;
+		const linkedDocsTitle = append(linkedDocsSection, $('div'));
+		linkedDocsTitle.style.cssText = `font-size:11px;font-weight:600;color:${T.textFaint};text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;`;
+		linkedDocsTitle.textContent = `Linked Documents (${linkedDocs.length})`;
+
+		for (const ld of linkedDocs) {
+			const ldRow = append(linkedDocsSection, $('div'));
+			ldRow.style.cssText = `display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:${T.radiusSm};cursor:pointer;transition:background 0.1s;`;
+			ldRow.addEventListener('mouseenter', () => { ldRow.style.background = T.surfaceHover; });
+			ldRow.addEventListener('mouseleave', () => { ldRow.style.background = ''; });
+
+			const ldBadge = append(ldRow, $('span'));
+			const ldc = DOC_TYPE_COLORS[ld.type] || '#666';
+			ldBadge.style.cssText = `font-size:9px;font-weight:600;padding:2px 6px;border-radius:3px;background:${ldc}20;color:${ldc};text-transform:uppercase;letter-spacing:0.04em;`;
+			ldBadge.textContent = DOC_TYPE_LABELS[ld.type] || ld.type;
+
+			const ldTitle = append(ldRow, $('span'));
+			ldTitle.style.cssText = `font-size:12px;color:${T.text};flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;`;
+			ldTitle.textContent = ld.title;
+
+			const ldStatus = append(ldRow, $('span'));
+			const ldsc = DOC_STATUS_COLORS[ld.status] || '#666';
+			ldStatus.style.cssText = `font-size:10px;padding:2px 6px;border-radius:${T.radiusPill};background:${ldsc}20;color:${ldsc};font-weight:500;`;
+			ldStatus.textContent = DOC_STATUS_LABELS[ld.status] || ld.status;
+
+			ldRow.addEventListener('click', () => { renderLinkedDocDetail(ld.id, task.id); });
+		}
+
+		// Link Document button
+		const linkDocBtn = append(linkedDocsSection, $('div'));
+		linkDocBtn.style.cssText = `display:flex;align-items:center;justify-content:center;padding:6px;border-radius:${T.radiusSm};border:1px dashed ${T.border};cursor:pointer;font-size:11px;color:${T.textMuted};transition:all 0.12s;margin-top:6px;`;
+		linkDocBtn.textContent = '+ Link Document';
+		linkDocBtn.addEventListener('mouseenter', () => { linkDocBtn.style.color = T.text; linkDocBtn.style.borderColor = T.accent; linkDocBtn.style.background = T.surfaceHover; });
+		linkDocBtn.addEventListener('mouseleave', () => { linkDocBtn.style.color = T.textMuted; linkDocBtn.style.borderColor = T.border; linkDocBtn.style.background = ''; });
+		linkDocBtn.addEventListener('click', () => {
+			const allDocs = getDocs();
+			const alreadyLinked = new Set(linkedDocs.map(d => d.id));
+			const available = allDocs.filter(d => !alreadyLinked.has(d.id));
+			if (available.length === 0) { return; }
+			const pickerWrap = append(linkedDocsSection, $('div'));
+			pickerWrap.style.cssText = 'position:relative;';
+			const dd = append(pickerWrap, $('div'));
+			dd.style.cssText = `background:${T.surface};border:1px solid ${T.border};border-radius:${T.radius};padding:4px 0;z-index:1000;min-width:200px;box-shadow:0 4px 12px rgba(0,0,0,0.3);margin-top:4px;`;
+			for (const d of available) {
+				const opt = append(dd, $('div'));
+				opt.style.cssText = `display:flex;align-items:center;gap:8px;padding:5px 12px;cursor:pointer;font-size:11px;color:${T.textMuted};transition:background 0.1s;`;
+				opt.addEventListener('mouseenter', () => { opt.style.background = T.surfaceHover; });
+				opt.addEventListener('mouseleave', () => { opt.style.background = ''; });
+				const optBadge = append(opt, $('span'));
+				const otc = DOC_TYPE_COLORS[d.type] || '#666';
+				optBadge.style.cssText = `font-size:8px;padding:1px 5px;border-radius:2px;background:${otc}20;color:${otc};font-weight:600;`;
+				optBadge.textContent = DOC_TYPE_LABELS[d.type] || d.type;
+				const optLabel = append(opt, $('span'));
+				optLabel.textContent = d.title;
+				opt.addEventListener('click', () => { addLink({ fromType: 'task', fromId: task.id, toType: 'doc', toId: d.id }); pickerWrap.remove(); renderTaskDetail(); });
+			}
+			const w = getWindow(linkedDocsSection);
+			const closeFn = (e: Event) => { if (!pickerWrap.contains(e.target as Node)) { pickerWrap.remove(); w.document.removeEventListener('click', closeFn); } };
+			setTimeout(() => w.document.addEventListener('click', closeFn), 0);
+		});
+
 		// Sub-tasks
 		if (task.subtasks.length > 0) {
 			const stSection = append(detailContainer, $('div'));
@@ -539,6 +604,84 @@ export function renderBoardContent(root: HTMLElement, commandService: { executeC
 		openBtn.addEventListener('click', () => { commandService.executeCommand('prendgame.openTaskDetail', task.id); });
 	}
 
+	// -- Cross-drill: linked doc detail -------------------------------------------
+	function renderLinkedDocDetail(docId: string, fromTaskId: string) {
+		detailContainer.textContent = '';
+		const doc = getDocs().find(d => d.id === docId);
+		if (!doc) { showDetail(fromTaskId); return; }
+		const fromTask = findTask(fromTaskId);
+
+		// Breadcrumb back to task
+		const backRow = append(detailContainer, $('div'));
+		backRow.style.cssText = `display:flex;align-items:center;gap:6px;padding:8px 20px;cursor:pointer;border-bottom:1px solid ${T.border};transition:background 0.1s;`;
+		backRow.addEventListener('mouseenter', () => { backRow.style.background = T.surfaceHover; });
+		backRow.addEventListener('mouseleave', () => { backRow.style.background = ''; });
+		backRow.addEventListener('click', () => { showDetail(fromTaskId); });
+		const backArrow = append(backRow, $('span'));
+		backArrow.style.cssText = `font-size:14px;color:${T.textMuted};`;
+		backArrow.textContent = '\u2190';
+		const backLabel = append(backRow, $('span'));
+		backLabel.style.cssText = `font-size:12px;color:${T.textMuted};`;
+		backLabel.textContent = fromTask ? `${fromTask.id}: ${fromTask.title}` : 'Back';
+
+		// Doc header
+		const header = append(detailContainer, $('div'));
+		header.style.cssText = `padding:14px 20px;border-bottom:1px solid ${T.border};`;
+		const tc = DOC_TYPE_COLORS[doc.type] || '#666';
+		const typeBadge = append(header, $('span'));
+		typeBadge.style.cssText = `font-size:9px;font-weight:600;padding:2px 6px;border-radius:3px;background:${tc}20;color:${tc};text-transform:uppercase;letter-spacing:0.04em;`;
+		typeBadge.textContent = DOC_TYPE_LABELS[doc.type] || doc.type;
+		const titleEl = append(header, $('div'));
+		titleEl.style.cssText = `font-size:16px;font-weight:600;color:${T.text};margin-top:8px;letter-spacing:-0.01em;`;
+		titleEl.textContent = doc.title;
+		const metaRow = append(header, $('div'));
+		metaRow.style.cssText = `display:flex;align-items:center;gap:10px;margin-top:8px;`;
+		const sc = DOC_STATUS_COLORS[doc.status] || '#666';
+		const statusPill = append(metaRow, $('span'));
+		statusPill.style.cssText = `font-size:11px;padding:3px 10px;border-radius:${T.radiusPill};background:${sc}20;color:${sc};font-weight:500;`;
+		statusPill.textContent = DOC_STATUS_LABELS[doc.status] || doc.status;
+		const ownerEl = append(metaRow, $('span'));
+		ownerEl.style.cssText = `display:inline-flex;align-items:center;gap:4px;font-size:11px;color:${T.textMuted};`;
+		const ownerAv = append(ownerEl, $('span'));
+		ownerAv.style.cssText = `display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;font-size:7px;font-weight:600;color:#fff;background:${doc.ownerColor};`;
+		ownerAv.textContent = doc.ownerInitials;
+		ownerEl.appendChild(document.createTextNode(doc.owner));
+
+		// Doc content
+		const contentSection = append(detailContainer, $('div'));
+		contentSection.style.cssText = `padding:14px 20px;border-bottom:1px solid ${T.border};`;
+		renderMarkdownToDOM(contentSection, doc.content);
+
+		// Linked tasks in this doc
+		const docLinkedTasks = getLinkedTasks(doc.id);
+		if (docLinkedTasks.length > 0) {
+			const ltSection = append(detailContainer, $('div'));
+			ltSection.style.cssText = `padding:14px 20px;`;
+			const ltTitle = append(ltSection, $('div'));
+			ltTitle.style.cssText = `font-size:11px;font-weight:600;color:${T.textFaint};text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;`;
+			ltTitle.textContent = `Linked Tasks (${docLinkedTasks.length})`;
+			for (const lt of docLinkedTasks) {
+				const ltRow = append(ltSection, $('div'));
+				ltRow.style.cssText = `display:flex;align-items:center;gap:8px;padding:4px 0;`;
+				const ltBar = append(ltRow, $('span'));
+				const lpc = PRIORITY_COLORS[lt.priority] || '#52525b';
+				ltBar.style.cssText = `width:3px;height:16px;border-radius:2px;background:${lpc};flex-shrink:0;`;
+				const ltId = append(ltRow, $('span'));
+				ltId.style.cssText = `font-size:11px;color:${T.textFaint};font-family:var(--monaco-monospace-font);white-space:nowrap;`;
+				ltId.textContent = lt.id;
+				const ltName = append(ltRow, $('span'));
+				ltName.style.cssText = `font-size:12px;color:${T.text};flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;`;
+				ltName.textContent = lt.title;
+				const ltStatusId = findTaskGroup(lt.id);
+				const ltsc = STATUS_COLORS[ltStatusId] || '#666';
+				const ltStatus = append(ltRow, $('span'));
+				ltStatus.style.cssText = `font-size:10px;padding:2px 6px;border-radius:${T.radiusPill};background:${ltsc}20;color:${ltsc};font-weight:500;`;
+				const taskStatusLabels: Record<string, string> = { backlog: 'Backlog', todo: 'To Do', in_progress: 'In Progress', in_review: 'In Review', done: 'Done' };
+				ltStatus.textContent = taskStatusLabels[ltStatusId] || ltStatusId;
+			}
+		}
+	}
+
 	// Drag state
 	let dragTaskId: string | null = null;
 	let dragSourceGroup: string | null = null;
@@ -741,6 +884,54 @@ export function renderBoardContent(root: HTMLElement, commandService: { executeC
 	const totalLabel = append(pills, $('span'));
 	totalLabel.style.cssText = `font-size:11px;color:${T.textFaint};margin-left:auto;`;
 	totalLabel.textContent = `${totalTasks} total`;
+
+	// == Incoming from Product ================================================
+	const readyDocs = getReadyForDevDocs();
+	if (readyDocs.length > 0) {
+		const incomingSection = append(boardContainer, $('div'));
+		incomingSection.style.cssText = `padding:10px 20px;border-bottom:1px solid ${T.border};background:${T.accent}08;border-left:3px solid ${T.accent};`;
+		const incomingHeader = append(incomingSection, $('div'));
+		incomingHeader.style.cssText = `font-size:11px;font-weight:600;color:${T.accent};text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;`;
+		incomingHeader.textContent = `Incoming from Product (${readyDocs.length})`;
+		for (const rd of readyDocs) {
+			const rdRow = append(incomingSection, $('div'));
+			rdRow.style.cssText = `display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:${T.radiusSm};transition:background 0.1s;`;
+			rdRow.addEventListener('mouseenter', () => { rdRow.style.background = T.surfaceHover; });
+			rdRow.addEventListener('mouseleave', () => { rdRow.style.background = ''; });
+			const rdBadge = append(rdRow, $('span'));
+			const rdc = DOC_TYPE_COLORS[rd.type] || '#666';
+			rdBadge.style.cssText = `font-size:9px;font-weight:600;padding:2px 6px;border-radius:3px;background:${rdc}20;color:${rdc};text-transform:uppercase;`;
+			rdBadge.textContent = DOC_TYPE_LABELS[rd.type] || rd.type;
+			const rdTitle = append(rdRow, $('span'));
+			rdTitle.style.cssText = `font-size:12px;color:${T.text};flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;`;
+			rdTitle.textContent = rd.title;
+			const rdOwner = append(rdRow, $('span'));
+			rdOwner.style.cssText = `display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;font-size:7px;font-weight:600;color:#fff;background:${rd.ownerColor};`;
+			rdOwner.textContent = rd.ownerInitials;
+			const createBtn = append(rdRow, $('span'));
+			createBtn.style.cssText = `font-size:10px;padding:3px 10px;border-radius:${T.radiusSm};background:${T.accent};color:#fff;cursor:pointer;font-weight:500;flex-shrink:0;transition:opacity 0.12s;`;
+			createBtn.textContent = 'Create Tasks';
+			createBtn.addEventListener('mouseenter', () => { createBtn.style.opacity = '0.85'; });
+			createBtn.addEventListener('mouseleave', () => { createBtn.style.opacity = '1'; });
+			createBtn.addEventListener('click', (e) => {
+				e.stopPropagation();
+				const newTasks = createTasksFromDoc(rd.id);
+				if (newTasks.length > 0) {
+					createBtn.textContent = `${newTasks.length} tasks created`;
+					createBtn.style.background = '#22c55e';
+					createBtn.style.cursor = 'default';
+					// Re-render the board to show new tasks
+					const todoContainer = cardsContainers.find(c => c.groupId === 'todo');
+					const todoBadge = badges.find(b => b.groupId === 'todo');
+					const todoGroup = groups.find(g => g.id === 'todo');
+					if (todoContainer && todoGroup) {
+						for (const nt of newTasks) { renderTaskRow(todoContainer.el, nt, 'todo'); }
+					}
+					if (todoBadge && todoGroup) { todoBadge.el.textContent = String(todoGroup.tasks.length); }
+				}
+			});
+		}
+	}
 
 	// == Groups ===============================================================
 	for (const group of groups) {

@@ -5,9 +5,9 @@
 
 import { $, append, getWindow } from '../../../../base/browser/dom.js';
 import { T } from './prendgameTheme.js';
-import { getDocs, PRIORITY_COLORS, PRIORITY_LABELS, DOC_TYPE_COLORS as TYPE_COLORS, DOC_TYPE_LABELS as TYPE_LABELS, DOC_STATUSES as STATUSES, DOC_STATUS_LABELS as STATUS_LABELS, DOC_STATUS_COLORS as STATUS_COLORS } from './prendgameData.js';
+import { getDocs, getLinkedTasks, addLink, isDocLocked, findTask, findTaskGroup, getGroups, PRIORITY_COLORS, PRIORITY_LABELS, TASK_STATUS_COLORS, TASK_STATUS_LABELS, DOC_TYPE_COLORS as TYPE_COLORS, DOC_TYPE_LABELS as TYPE_LABELS, DOC_STATUSES as STATUSES, DOC_STATUS_LABELS as STATUS_LABELS, DOC_STATUS_COLORS as STATUS_COLORS } from './prendgameData.js';
 
-function renderMarkdownToDOM(parent: HTMLElement, text: string): void {
+export function renderMarkdownToDOM(parent: HTMLElement, text: string): void {
 	const lines = text.split('\n');
 	for (const line of lines) {
 		if (line.startsWith('## ')) {
@@ -174,6 +174,17 @@ export function renderDocsContent(root: HTMLElement, commandService: { executeCo
 		backLabel.style.cssText = `font-size:12px;color:${T.textMuted};`;
 		backLabel.textContent = 'Documents';
 
+		// Lock banner (TASK-017)
+		const locked = isDocLocked(doc.id);
+		if (locked) {
+			const lockBanner = append(detailContainer, $('div'));
+			lockBanner.style.cssText = `display:flex;align-items:center;gap:8px;padding:10px 20px;background:#f59e0b15;border-bottom:1px solid #f59e0b30;color:#f59e0b;font-size:12px;font-weight:500;`;
+			const lockIcon = append(lockBanner, $('span'));
+			lockIcon.style.cssText = 'font-size:14px;';
+			lockIcon.textContent = '\u{1F512}';
+			lockBanner.appendChild(document.createTextNode('Locked \u2014 In Development'));
+		}
+
 		// Header
 		const header = append(detailContainer, $('div'));
 		header.style.cssText = `padding:14px 20px;border-bottom:1px solid ${T.border};`;
@@ -190,6 +201,7 @@ export function renderDocsContent(root: HTMLElement, commandService: { executeCo
 		titleEl.addEventListener('mouseenter', () => { titleEl.style.background = T.surfaceHover; });
 		titleEl.addEventListener('mouseleave', () => { titleEl.style.background = ''; });
 		titleEl.addEventListener('click', () => {
+			if (locked) { return; }
 			const input = document.createElement('input');
 			input.type = 'text';
 			input.value = doc.title;
@@ -524,6 +536,78 @@ export function renderDocsContent(root: HTMLElement, commandService: { executeCo
 			});
 		}
 
+		// Linked Tasks
+		const linkedTasks = getLinkedTasks(doc.id);
+		const ltSection = append(detailContainer, $('div'));
+		ltSection.style.cssText = `padding:14px 20px;border-top:1px solid ${T.border};`;
+		const ltTitle = append(ltSection, $('div'));
+		ltTitle.style.cssText = `font-size:11px;font-weight:600;color:${T.textFaint};text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;`;
+		ltTitle.textContent = `Linked Tasks (${linkedTasks.length})`;
+
+		for (const lt of linkedTasks) {
+			const ltRow = append(ltSection, $('div'));
+			ltRow.style.cssText = `display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:${T.radiusSm};cursor:pointer;transition:background 0.1s;`;
+			ltRow.addEventListener('mouseenter', () => { ltRow.style.background = T.surfaceHover; });
+			ltRow.addEventListener('mouseleave', () => { ltRow.style.background = ''; });
+
+			const ltBar = append(ltRow, $('span'));
+			const lpc = PRIORITY_COLORS[lt.priority] || '#52525b';
+			ltBar.style.cssText = `width:3px;height:16px;border-radius:2px;background:${lpc};flex-shrink:0;`;
+
+			const ltId = append(ltRow, $('span'));
+			ltId.style.cssText = `font-size:11px;color:${T.textFaint};font-family:var(--monaco-monospace-font);white-space:nowrap;`;
+			ltId.textContent = lt.id;
+
+			const ltName = append(ltRow, $('span'));
+			ltName.style.cssText = `font-size:12px;color:${T.text};flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;`;
+			ltName.textContent = lt.title;
+
+			const ltGroupId = findTaskGroup(lt.id);
+			const ltsc = TASK_STATUS_COLORS[ltGroupId] || '#666';
+			const ltStatus = append(ltRow, $('span'));
+			ltStatus.style.cssText = `font-size:10px;padding:2px 6px;border-radius:${T.radiusPill};background:${ltsc}20;color:${ltsc};font-weight:500;`;
+			ltStatus.textContent = TASK_STATUS_LABELS[ltGroupId] || ltGroupId;
+
+			ltRow.addEventListener('click', () => { renderLinkedTaskDetail(lt.id, doc.id); });
+		}
+
+		// Link Task button
+		const linkTaskBtn = append(ltSection, $('div'));
+		linkTaskBtn.style.cssText = `display:flex;align-items:center;justify-content:center;padding:6px;border-radius:${T.radiusSm};border:1px dashed ${T.border};cursor:pointer;font-size:11px;color:${T.textMuted};transition:all 0.12s;margin-top:6px;`;
+		linkTaskBtn.textContent = '+ Link Task';
+		linkTaskBtn.addEventListener('mouseenter', () => { linkTaskBtn.style.color = T.text; linkTaskBtn.style.borderColor = T.accent; linkTaskBtn.style.background = T.surfaceHover; });
+		linkTaskBtn.addEventListener('mouseleave', () => { linkTaskBtn.style.color = T.textMuted; linkTaskBtn.style.borderColor = T.border; linkTaskBtn.style.background = ''; });
+		linkTaskBtn.addEventListener('click', () => {
+			const allTasks: { id: string; title: string; priority: string }[] = [];
+			for (const g of getGroups()) { for (const tk of g.tasks) { allTasks.push(tk); } }
+			const alreadyLinked = new Set(linkedTasks.map(t => t.id));
+			const available = allTasks.filter(t => !alreadyLinked.has(t.id));
+			if (available.length === 0) { return; }
+			const pickerWrap = append(ltSection, $('div'));
+			pickerWrap.style.cssText = 'position:relative;';
+			const dd = append(pickerWrap, $('div'));
+			dd.style.cssText = `background:${T.surface};border:1px solid ${T.border};border-radius:${T.radius};padding:4px 0;z-index:1000;min-width:220px;max-height:200px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,0.3);margin-top:4px;`;
+			for (const tk of available) {
+				const opt = append(dd, $('div'));
+				opt.style.cssText = `display:flex;align-items:center;gap:8px;padding:5px 12px;cursor:pointer;font-size:11px;color:${T.textMuted};transition:background 0.1s;`;
+				opt.addEventListener('mouseenter', () => { opt.style.background = T.surfaceHover; });
+				opt.addEventListener('mouseleave', () => { opt.style.background = ''; });
+				const optBar = append(opt, $('span'));
+				const opc = PRIORITY_COLORS[tk.priority] || '#52525b';
+				optBar.style.cssText = `width:3px;height:12px;border-radius:1px;background:${opc};flex-shrink:0;`;
+				const optId = append(opt, $('span'));
+				optId.style.cssText = `font-size:10px;color:${T.textFaint};font-family:var(--monaco-monospace-font);`;
+				optId.textContent = tk.id;
+				const optLabel = append(opt, $('span'));
+				optLabel.style.cssText = 'flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+				optLabel.textContent = tk.title;
+				opt.addEventListener('click', () => { addLink({ fromType: 'doc', fromId: doc.id, toType: 'task', toId: tk.id }); pickerWrap.remove(); renderDetail(); });
+			}
+			const w = getWindow(ltSection);
+			const closeFn = (e: Event) => { if (!pickerWrap.contains(e.target as Node)) { pickerWrap.remove(); w.document.removeEventListener('click', closeFn); } };
+			setTimeout(() => w.document.addEventListener('click', closeFn), 0);
+		});
+
 		// Attachments
 		const attachSection = append(detailContainer, $('div'));
 		attachSection.style.cssText = `padding:14px 20px;border-top:1px solid ${T.border};`;
@@ -563,6 +647,103 @@ export function renderDocsContent(root: HTMLElement, commandService: { executeCo
 		addAttachBtn.textContent = '+ Add Attachment';
 		addAttachBtn.addEventListener('mouseenter', () => { addAttachBtn.style.color = T.text; addAttachBtn.style.borderColor = T.accent; addAttachBtn.style.background = T.surfaceHover; });
 		addAttachBtn.addEventListener('mouseleave', () => { addAttachBtn.style.color = T.textMuted; addAttachBtn.style.borderColor = T.border; addAttachBtn.style.background = ''; });
+	}
+
+	// -- Cross-drill: linked task detail -----------------------------------------
+	function renderLinkedTaskDetail(taskId: string, fromDocId: string) {
+		detailContainer.textContent = '';
+		const task = findTask(taskId);
+		if (!task) { showDetail(fromDocId); return; }
+		const fromDoc = getDocs().find(d => d.id === fromDocId);
+
+		listContainer.style.display = 'none';
+		detailContainer.style.display = '';
+
+		// Breadcrumb back to doc
+		const backRow = append(detailContainer, $('div'));
+		backRow.style.cssText = `display:flex;align-items:center;gap:6px;padding:8px 20px;cursor:pointer;border-bottom:1px solid ${T.border};transition:background 0.1s;`;
+		backRow.addEventListener('mouseenter', () => { backRow.style.background = T.surfaceHover; });
+		backRow.addEventListener('mouseleave', () => { backRow.style.background = ''; });
+		backRow.addEventListener('click', () => { showDetail(fromDocId); });
+		const backArrow = append(backRow, $('span'));
+		backArrow.style.cssText = `font-size:14px;color:${T.textMuted};`;
+		backArrow.textContent = '\u2190';
+		const backLabel = append(backRow, $('span'));
+		backLabel.style.cssText = `font-size:12px;color:${T.textMuted};`;
+		backLabel.textContent = fromDoc ? fromDoc.title : 'Back';
+
+		// Task header
+		const header = append(detailContainer, $('div'));
+		header.style.cssText = `padding:14px 20px;border-bottom:1px solid ${T.border};`;
+		const idEl = append(header, $('span'));
+		idEl.style.cssText = `font-size:11px;color:${T.textFaint};font-family:var(--monaco-monospace-font);`;
+		idEl.textContent = task.id;
+		const titleEl = append(header, $('div'));
+		titleEl.style.cssText = `font-size:16px;font-weight:600;color:${T.text};margin-top:6px;letter-spacing:-0.01em;`;
+		titleEl.textContent = task.title;
+
+		// Task metadata
+		const metaGrid = append(detailContainer, $('div'));
+		metaGrid.style.cssText = `padding:12px 20px;border-bottom:1px solid ${T.border};display:grid;grid-template-columns:80px 1fr;gap:6px 12px;align-items:center;`;
+
+		const statusLbl = append(metaGrid, $('span'));
+		statusLbl.style.cssText = `font-size:11px;color:${T.textFaint};`;
+		statusLbl.textContent = 'Status';
+		const groupId = findTaskGroup(task.id);
+		const sc = TASK_STATUS_COLORS[groupId] || '#666';
+		const statusVal = append(metaGrid, $('span'));
+		statusVal.style.cssText = `display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:3px 10px;border-radius:${T.radiusPill};background:${sc}20;color:${sc};font-weight:500;`;
+		statusVal.textContent = TASK_STATUS_LABELS[groupId] || groupId;
+
+		const prioLbl = append(metaGrid, $('span'));
+		prioLbl.style.cssText = `font-size:11px;color:${T.textFaint};`;
+		prioLbl.textContent = 'Priority';
+		const pc = PRIORITY_COLORS[task.priority] || '#52525b';
+		const prioVal = append(metaGrid, $('span'));
+		prioVal.style.cssText = `display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:3px 10px;border-radius:${T.radiusPill};background:${pc}20;color:${pc};font-weight:500;`;
+		prioVal.textContent = PRIORITY_LABELS[task.priority] || task.priority;
+
+		const assigneeLbl = append(metaGrid, $('span'));
+		assigneeLbl.style.cssText = `font-size:11px;color:${T.textFaint};`;
+		assigneeLbl.textContent = 'Assignee';
+		const assigneeVal = append(metaGrid, $('span'));
+		assigneeVal.style.cssText = `display:inline-flex;align-items:center;gap:6px;font-size:12px;color:${T.text};`;
+		const av = append(assigneeVal, $('span'));
+		av.style.cssText = `display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;font-size:8px;font-weight:600;color:#fff;background:${task.color};`;
+		av.textContent = task.initials;
+		assigneeVal.appendChild(document.createTextNode(task.initials));
+
+		// Description
+		if (task.description) {
+			const descSection = append(detailContainer, $('div'));
+			descSection.style.cssText = `padding:14px 20px;border-bottom:1px solid ${T.border};`;
+			const descTitle = append(descSection, $('div'));
+			descTitle.style.cssText = `font-size:11px;font-weight:600;color:${T.textFaint};text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;`;
+			descTitle.textContent = 'Description';
+			const descContent = append(descSection, $('div'));
+			descContent.style.cssText = `font-size:13px;line-height:1.7;color:${T.text};`;
+			renderMarkdownToDOM(descContent, task.description);
+		}
+
+		// Sub-tasks
+		if (task.subtasks.length > 0) {
+			const stSection = append(detailContainer, $('div'));
+			stSection.style.cssText = `padding:14px 20px;`;
+			const stDone = task.subtasks.filter(s => s.done).length;
+			const stTitle = append(stSection, $('div'));
+			stTitle.style.cssText = `font-size:11px;font-weight:600;color:${T.textFaint};text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;`;
+			stTitle.textContent = `Sub-tasks (${stDone}/${task.subtasks.length})`;
+			for (const st of task.subtasks) {
+				const stRow = append(stSection, $('div'));
+				stRow.style.cssText = `display:flex;align-items:center;gap:8px;padding:3px 0;`;
+				const stCheck = append(stRow, $('span'));
+				stCheck.style.cssText = `font-size:14px;color:${st.done ? '#22c55e' : T.textFaint};`;
+				stCheck.textContent = st.done ? '\u2611' : '\u2610';
+				const stLabel = append(stRow, $('span'));
+				stLabel.style.cssText = `font-size:12px;color:${st.done ? T.textFaint : T.text};${st.done ? 'text-decoration:line-through;' : ''}`;
+				stLabel.textContent = st.title;
+			}
+		}
 	}
 
 	// Initial render
