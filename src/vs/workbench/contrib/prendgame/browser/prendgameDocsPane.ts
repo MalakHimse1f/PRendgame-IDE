@@ -417,6 +417,46 @@ export function renderDocsContent(root: HTMLElement, commandService: { executeCo
 				});
 			});
 		}
+
+		// Attachments
+		const attachSection = append(detailContainer, $('div'));
+		attachSection.style.cssText = `padding:14px 20px;border-top:1px solid ${T.border};`;
+
+		const attachTitle = append(attachSection, $('div'));
+		attachTitle.style.cssText = `font-size:11px;font-weight:600;color:${T.textFaint};text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px;`;
+		attachTitle.textContent = 'Attachments';
+
+		const mockAttachments = [
+			{ name: 'Figma Mockups', type: 'url', meta: 'figma.com/file/abc123', icon: '\u{1F517}' },
+			{ name: 'Homepage Wireframe.png', type: 'image', meta: '2.4 MB', icon: '\u{1F5BC}' },
+			{ name: 'Market Research Q1.pdf', type: 'pdf', meta: '1.8 MB', icon: '\u{1F4C4}' },
+		];
+
+		for (const att of mockAttachments) {
+			const row = append(attachSection, $('div'));
+			row.style.cssText = `display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:${T.radiusSm};cursor:pointer;transition:background 0.1s;`;
+			row.addEventListener('mouseenter', () => { row.style.background = T.surfaceHover; });
+			row.addEventListener('mouseleave', () => { row.style.background = ''; });
+
+			const icon = append(row, $('span'));
+			icon.style.cssText = 'font-size:14px;flex-shrink:0;';
+			icon.textContent = att.icon;
+
+			const info = append(row, $('div'));
+			info.style.cssText = 'flex:1;min-width:0;';
+			const fname = append(info, $('div'));
+			fname.style.cssText = `font-size:12px;color:${T.text};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;`;
+			fname.textContent = att.name;
+			const fmeta = append(info, $('div'));
+			fmeta.style.cssText = `font-size:10px;color:${T.textFaint};`;
+			fmeta.textContent = att.meta;
+		}
+
+		const addAttachBtn = append(attachSection, $('div'));
+		addAttachBtn.style.cssText = `display:flex;align-items:center;justify-content:center;padding:6px;border-radius:${T.radiusSm};border:1px dashed ${T.border};cursor:pointer;font-size:11px;color:${T.textMuted};transition:all 0.12s;margin-top:8px;`;
+		addAttachBtn.textContent = '+ Add Attachment';
+		addAttachBtn.addEventListener('mouseenter', () => { addAttachBtn.style.color = T.text; addAttachBtn.style.borderColor = T.accent; addAttachBtn.style.background = T.surfaceHover; });
+		addAttachBtn.addEventListener('mouseleave', () => { addAttachBtn.style.color = T.textMuted; addAttachBtn.style.borderColor = T.border; addAttachBtn.style.background = ''; });
 	}
 
 	// Initial render
