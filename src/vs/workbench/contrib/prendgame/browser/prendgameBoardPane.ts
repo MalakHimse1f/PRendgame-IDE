@@ -103,6 +103,9 @@ export class PRendgameBoardPane extends ViewPane {
 		const badges: { el: HTMLElement; groupId: string }[] = [];
 		const twisties: { el: HTMLElement; groupId: string }[] = [];
 
+		// Filter state
+		const taskRows: { el: HTMLElement; task: ITask; groupId: string }[] = [];
+
 		function clearDropHighlights() {
 			for (const dz of dropZones) {
 				dz.el.style.cssText = 'height:0;transition:height 0.15s,background 0.15s,margin 0.15s;overflow:hidden;';
@@ -170,17 +173,18 @@ export class PRendgameBoardPane extends ViewPane {
 
 			// Add row to target container
 			if (tgtContainer) {
-				renderTaskRow(tgtContainer.el, task);
+				renderTaskRow(tgtContainer.el, task, targetGroupId);
 			}
 		}
 
 		const commandService = this.commandService;
 
-		function renderTaskRow(parent: HTMLElement, task: ITask) {
+		function renderTaskRow(parent: HTMLElement, task: ITask, groupId?: string) {
 			const row = append(parent, $('div'));
 			row.style.cssText = 'display:flex;align-items:center;gap:6px;padding:0 16px 0 38px;height:22px;cursor:pointer;';
 			row.dataset.taskId = task.id;
 			row.draggable = true;
+			taskRows.push({ el: row, task, groupId: groupId || '' });
 			row.addEventListener('mouseenter', () => { if (!dragTaskId) { row.style.background = 'var(--vscode-list-hoverBackground)'; } });
 			row.addEventListener('mouseleave', () => { row.style.background = ''; });
 
@@ -249,6 +253,37 @@ export class PRendgameBoardPane extends ViewPane {
 		const sprintMeta = append(sprint, $('span'));
 		sprintMeta.style.cssText = 'font-size:11px;color:var(--vscode-descriptionForeground);margin-left:auto;';
 		sprintMeta.textContent = 'Apr 7\u201318';
+
+		// -- Search / filter --------------------------------------------------
+		const searchWrap = append(root, $('div'));
+		searchWrap.style.cssText = 'padding:6px 16px;border-bottom:1px solid var(--vscode-sideBar-border,var(--vscode-panel-border));';
+
+		const searchInput = append(searchWrap, $('input'));
+		searchInput.type = 'text';
+		searchInput.placeholder = 'Filter tasks...';
+		searchInput.style.cssText = 'width:100%;background:var(--vscode-input-background);border:1px solid var(--vscode-input-border,var(--vscode-panel-border));color:var(--vscode-input-foreground,var(--vscode-editor-foreground));padding:4px 8px;border-radius:4px;font-size:12px;font-family:var(--vscode-font-family);outline:none;';
+		searchInput.addEventListener('focus', () => { searchInput.style.borderColor = 'var(--vscode-focusBorder)'; });
+		searchInput.addEventListener('blur', () => { searchInput.style.borderColor = 'var(--vscode-input-border,var(--vscode-panel-border))'; });
+
+		searchInput.addEventListener('input', () => {
+			const q = searchInput.value.toLowerCase().trim();
+			for (const entry of taskRows) {
+				const t = entry.task;
+				const match = !q
+					|| t.id.toLowerCase().includes(q)
+					|| t.title.toLowerCase().includes(q)
+					|| t.labels.some(l => l.toLowerCase().includes(q))
+					|| t.initials.toLowerCase().includes(q)
+					|| t.priority.toLowerCase().includes(q);
+				entry.el.style.display = match ? '' : 'none';
+			}
+
+			// Update badge counts to reflect visible tasks
+			for (const b of badges) {
+				const visibleCount = taskRows.filter(r => r.groupId === b.groupId && r.el.style.display !== 'none').length;
+				b.el.textContent = String(visibleCount);
+			}
+		});
 
 		// -- Summary pills -----------------------------------------------------
 		const pills = append(root, $('div'));
@@ -338,7 +373,7 @@ export class PRendgameBoardPane extends ViewPane {
 
 			// Render task rows
 			for (const task of group.tasks) {
-				renderTaskRow(cards, task);
+				renderTaskRow(cards, task, group.id);
 			}
 		}
 
