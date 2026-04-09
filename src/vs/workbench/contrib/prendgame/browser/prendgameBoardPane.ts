@@ -470,6 +470,49 @@ export function renderBoardContent(root: HTMLElement, commandService: { executeC
 		sendBtn.addEventListener('click', addComment);
 		commentInput.addEventListener('keydown', (ke) => { if (ke.key === 'Enter') { addComment(); } });
 
+		// Linked Code
+		const codeSection = append(detailContainer, $('div'));
+		codeSection.style.cssText = `padding:14px 20px;border-bottom:1px solid ${T.border};`;
+
+		const codeTitle = append(codeSection, $('div'));
+		codeTitle.style.cssText = `font-size:11px;font-weight:600;color:${T.textFaint};text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px;`;
+		codeTitle.textContent = 'Linked Code';
+
+		const mockSnippets = [
+			{ file: 'src/vs/workbench/contrib/prendgame/browser/prendgameBoardPane.ts', lines: '117-238', code: 'export function renderBoardContent(\n  root: HTMLElement,\n  commandService: { ... }\n): void {\n  const groups = getGroups();' },
+			{ file: 'extensions/prendgame/src/extension.js', lines: '236-265', code: 'context.subscriptions.push(\n  vscode.commands.registerCommand(\n    \'prendgame.openTaskDetail\',\n    (taskId) => { ... }\n  )\n);' },
+		];
+
+		for (const snip of mockSnippets) {
+			const snippetEl = append(codeSection, $('div'));
+			snippetEl.style.cssText = `margin-bottom:10px;border:1px solid ${T.border};border-radius:${T.radius};overflow:hidden;`;
+
+			const snippetHeader = append(snippetEl, $('div'));
+			snippetHeader.style.cssText = `display:flex;align-items:center;gap:6px;padding:6px 10px;background:${T.surface};border-bottom:1px solid ${T.border};`;
+
+			const fileIcon = append(snippetHeader, $('span'));
+			fileIcon.style.cssText = `font-size:12px;color:${T.textFaint};`;
+			fileIcon.textContent = '\u{1F4C4}';
+
+			const fileName = append(snippetHeader, $('span'));
+			fileName.style.cssText = `font-size:11px;color:${T.text};font-family:var(--monaco-monospace-font);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;`;
+			fileName.textContent = snip.file;
+
+			const lineRange = append(snippetHeader, $('span'));
+			lineRange.style.cssText = `font-size:10px;color:${T.textFaint};white-space:nowrap;`;
+			lineRange.textContent = `L${snip.lines}`;
+
+			const codeBlock = append(snippetEl, $('div'));
+			codeBlock.style.cssText = `padding:8px 10px;font-family:var(--monaco-monospace-font);font-size:11px;line-height:1.5;color:#a5b4fc;white-space:pre;overflow-x:auto;`;
+			codeBlock.textContent = snip.code;
+		}
+
+		const linkCodeBtn = append(codeSection, $('div'));
+		linkCodeBtn.style.cssText = `display:flex;align-items:center;justify-content:center;padding:6px;border-radius:${T.radiusSm};border:1px dashed ${T.border};cursor:pointer;font-size:11px;color:${T.textMuted};transition:all 0.12s;margin-top:6px;`;
+		linkCodeBtn.textContent = '+ Link Code';
+		linkCodeBtn.addEventListener('mouseenter', () => { linkCodeBtn.style.color = T.text; linkCodeBtn.style.borderColor = T.accent; linkCodeBtn.style.background = T.surfaceHover; });
+		linkCodeBtn.addEventListener('mouseleave', () => { linkCodeBtn.style.color = T.textMuted; linkCodeBtn.style.borderColor = T.border; linkCodeBtn.style.background = ''; });
+
 		// Open in Editor button
 		const btnWrap = append(detailContainer, $('div'));
 		btnWrap.style.cssText = `padding:12px 20px;`;
