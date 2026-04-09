@@ -44,26 +44,37 @@ const STATUS_COLORS: Record<string, string> = {
 
 // -- Data ---------------------------------------------------------------------
 
-interface ITask { id: string; title: string; priority: string; initials: string; color: string; labels: string[]; description: string }
+interface ITask { id: string; title: string; priority: string; initials: string; color: string; labels: string[]; description: string; dueDate: string }
 interface IGroup { id: string; name: string; tasks: ITask[]; collapsed: boolean }
 
+function getDueDateStyle(d: string): { color: string; label: string } {
+	if (!d) { return { color: '#52525b', label: '' }; }
+	const today = new Date('2026-04-09');
+	const due = new Date(d);
+	const diff = Math.floor((due.getTime() - today.getTime()) / 86400000);
+	if (diff < 0) { return { color: '#ef4444', label: d + ' (overdue)' }; }
+	if (diff === 0) { return { color: '#f59e0b', label: d + ' (today)' }; }
+	if (diff <= 3) { return { color: '#f59e0b', label: d }; }
+	return { color: '#52525b', label: d };
+}
+
 function getGroups(): IGroup[] {
-	const t = (id: string, title: string, priority: string, initials: string, color: string, labels: string[], description?: string): ITask => ({ id, title, priority, initials, color, labels, description: description || '' });
+	const t = (id: string, title: string, priority: string, initials: string, color: string, labels: string[], description?: string, dueDate?: string): ITask => ({ id, title, priority, initials, color, labels, description: description || '', dueDate: dueDate || '' });
 	return [
 		{
 			id: 'in_progress', name: 'In Progress', collapsed: false, tasks: [
-				t('PRE-3', 'Build kanban board webview', 'critical', 'ML', '#10b981', ['frontend', 'core'], 'Implement the main kanban board as a VS Code webview panel.\n\n- 5 default columns (configurable)\n- Drag-and-drop between columns\n- Task card rendering with title, assignee avatar, priority badge\n- Filter bar (assignee, priority, label)'),
-				t('PRE-4', 'Implement task detail view', 'high', 'SR', '#f59e0b', ['frontend'], 'When a user clicks a task card, show a detail view with all fields inline-editable.\n\n- Title, status, priority, assignee\n- Description with markdown rendering\n- Comments thread\n- Linked documents and code snippets'),
-				t('PRE-5', 'Create sidebar tree views', 'high', 'RB', '#ef4444', ['frontend'], 'Register tree view providers in the PRendgame activity bar.\n\n- My Tasks grouped by status\n- Documents grouped by type\n- Sprints with task counts'),
+				t('PRE-3', 'Build kanban board webview', 'critical', 'ML', '#10b981', ['frontend', 'core'], 'Implement the main kanban board as a VS Code webview panel.\n\n- 5 default columns (configurable)\n- Drag-and-drop between columns\n- Task card rendering with title, assignee avatar, priority badge\n- Filter bar (assignee, priority, label)', '2026-04-08'),
+				t('PRE-4', 'Implement task detail view', 'high', 'SR', '#f59e0b', ['frontend'], 'When a user clicks a task card, show a detail view with all fields inline-editable.\n\n- Title, status, priority, assignee\n- Description with markdown rendering\n- Comments thread\n- Linked documents and code snippets', '2026-04-11'),
+				t('PRE-5', 'Create sidebar tree views', 'high', 'RB', '#ef4444', ['frontend'], 'Register tree view providers in the PRendgame activity bar.\n\n- My Tasks grouped by status\n- Documents grouped by type\n- Sprints with task counts', '2026-04-09'),
 			]
 		},
 		{
 			id: 'todo', name: 'To Do', collapsed: false, tasks: [
-				t('PRE-6', 'Build document editor with PRD template', 'high', 'ML', '#10b981', ['docs']),
-				t('PRE-7', 'Implement list view for tasks', 'medium', 'SR', '#f59e0b', ['frontend']),
-				t('PRE-8', 'Implement timeline view', 'medium', 'ML', '#10b981', ['frontend']),
-				t('PRE-15', 'Sprint dashboard view', 'medium', 'ML', '#10b981', ['dashboard']),
-				t('PRE-16', 'QA pass on kanban interactions', 'high', 'AQ', '#ec4899', ['qa']),
+				t('PRE-6', 'Build document editor with PRD template', 'high', 'ML', '#10b981', ['docs'], '', '2026-04-14'),
+				t('PRE-7', 'Implement list view for tasks', 'medium', 'SR', '#f59e0b', ['frontend'], '', '2026-04-16'),
+				t('PRE-8', 'Implement timeline view', 'medium', 'ML', '#10b981', ['frontend'], '', '2026-04-18'),
+				t('PRE-15', 'Sprint dashboard view', 'medium', 'ML', '#10b981', ['dashboard'], '', '2026-04-18'),
+				t('PRE-16', 'QA pass on kanban interactions', 'high', 'AQ', '#ec4899', ['qa'], '', '2026-04-11'),
 			]
 		},
 		{ id: 'in_review', name: 'In Review', collapsed: false, tasks: [] },
@@ -355,6 +366,34 @@ export function renderBoardContent(root: HTMLElement, commandService: { executeC
 			lbl.textContent = l;
 		}
 
+		// Due Date
+		const dueLbl = append(metaGrid, $('span'));
+		dueLbl.style.cssText = `font-size:11px;color:${T.textFaint};`;
+		dueLbl.textContent = 'Due Date';
+		const dueVal = append(metaGrid, $('span'));
+		const ds = getDueDateStyle(task.dueDate);
+		dueVal.style.cssText = `font-size:11px;color:${ds.color};cursor:text;padding:2px 4px;border-radius:${T.radiusSm};transition:background 0.1s;`;
+		dueVal.textContent = ds.label || 'No due date';
+		dueVal.addEventListener('mouseenter', () => { dueVal.style.background = T.surfaceHover; });
+		dueVal.addEventListener('mouseleave', () => { dueVal.style.background = ''; });
+		dueVal.addEventListener('click', () => {
+			const input = document.createElement('input');
+			input.type = 'date';
+			input.value = task.dueDate || '';
+			input.style.cssText = `background:${T.surface};border:1px solid ${T.accent};color:${T.text};padding:2px 6px;border-radius:${T.radiusSm};font-size:11px;font-family:inherit;outline:none;`;
+			dueVal.textContent = '';
+			dueVal.appendChild(input);
+			input.focus();
+			const finish = () => {
+				task.dueDate = input.value;
+				const newDs = getDueDateStyle(task.dueDate);
+				dueVal.style.color = newDs.color;
+				dueVal.textContent = newDs.label || 'No due date';
+			};
+			input.addEventListener('blur', finish);
+			input.addEventListener('change', () => { input.blur(); });
+		});
+
 		// Description
 		const descSection = append(detailContainer, $('div'));
 		descSection.style.cssText = `padding:14px 20px;border-bottom:1px solid ${T.border};`;
@@ -641,6 +680,14 @@ export function renderBoardContent(root: HTMLElement, commandService: { executeC
 		av.style.cssText = `display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;font-size:8px;font-weight:600;color:#fff;flex-shrink:0;background:${task.color};letter-spacing:0;`;
 		av.textContent = task.initials;
 		av.title = task.initials;
+
+		// Due date
+		if (task.dueDate) {
+			const ds = getDueDateStyle(task.dueDate);
+			const dueEl = append(row, $('span'));
+			dueEl.style.cssText = `font-size:10px;color:${ds.color};white-space:nowrap;flex-shrink:0;`;
+			dueEl.textContent = task.dueDate.slice(5); // show MM-DD
+		}
 	}
 
 	// == Sprint bar ===========================================================
