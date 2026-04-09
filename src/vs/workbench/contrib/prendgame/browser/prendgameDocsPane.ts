@@ -43,18 +43,41 @@ function getInitialDocs(): IDoc[] {
 	];
 }
 
-function simpleMarkdown(text: string): string {
-	const html = text
-		.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-		.replace(/^## (.+)$/gm, '<div style="font-size:14px;font-weight:600;margin:14px 0 6px;color:#e4e4e7;border-bottom:1px solid #1e1e22;padding-bottom:4px">$1</div>')
-		.replace(/^# (.+)$/gm, '<div style="font-size:16px;font-weight:700;margin:16px 0 8px;color:#e4e4e7">$1</div>')
-		.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-		.replace(/^- \[x\] (.+)$/gm, '<div style="margin:2px 0;color:#22c55e">\u2611 $1</div>')
-		.replace(/^- \[ \] (.+)$/gm, '<div style="margin:2px 0;color:#71717a">\u2610 $1</div>')
-		.replace(/^- (.+)$/gm, '<div style="margin:2px 0;padding-left:12px">\u2022 $1</div>')
-		.replace(/^\d+\. (.+)$/gm, '<div style="margin:2px 0;padding-left:12px">$1</div>')
-		.replace(/\n\n/g, '<br/>');
-	return html;
+function renderMarkdownToDOM(parent: HTMLElement, text: string): void {
+	const lines = text.split('\n');
+	for (const line of lines) {
+		if (line.startsWith('## ')) {
+			const el = append(parent, $('div'));
+			el.style.cssText = 'font-size:14px;font-weight:600;margin:14px 0 6px;color:#e4e4e7;border-bottom:1px solid #1e1e22;padding-bottom:4px';
+			el.textContent = line.slice(3);
+		} else if (line.startsWith('# ')) {
+			const el = append(parent, $('div'));
+			el.style.cssText = 'font-size:16px;font-weight:700;margin:16px 0 8px;color:#e4e4e7';
+			el.textContent = line.slice(2);
+		} else if (line.startsWith('- [x] ')) {
+			const el = append(parent, $('div'));
+			el.style.cssText = 'margin:2px 0;color:#22c55e';
+			el.textContent = '\u2611 ' + line.slice(6);
+		} else if (line.startsWith('- [ ] ')) {
+			const el = append(parent, $('div'));
+			el.style.cssText = 'margin:2px 0;color:#71717a';
+			el.textContent = '\u2610 ' + line.slice(6);
+		} else if (line.startsWith('- ')) {
+			const el = append(parent, $('div'));
+			el.style.cssText = 'margin:2px 0;padding-left:12px';
+			el.textContent = '\u2022 ' + line.slice(2);
+		} else if (/^\d+\. /.test(line)) {
+			const el = append(parent, $('div'));
+			el.style.cssText = 'margin:2px 0;padding-left:12px';
+			el.textContent = line;
+		} else if (line.trim() === '') {
+			append(parent, $('br'));
+		} else {
+			const el = append(parent, $('div'));
+			el.style.cssText = 'margin:2px 0';
+			el.textContent = line;
+		}
+	}
 }
 
 export class PRendgameDocsPane extends ViewPane {
@@ -297,7 +320,7 @@ export class PRendgameDocsPane extends ViewPane {
 					editBtn.style.cssText = `${btnBase}border-radius:0;background:transparent;color:${T.textMuted};border-left:none;border-color:${T.border};`;
 					const preview = append(contentArea, $('div'));
 					preview.style.cssText = `font-size:13px;line-height:1.7;color:${T.text};`;
-					preview.innerHTML = simpleMarkdown(doc.content);
+					renderMarkdownToDOM(preview, doc.content);
 				} else {
 					editBtn.style.cssText = `${btnBase}border-radius:0;background:${T.accent};color:#fff;border-color:${T.accent};border-left:none;`;
 					previewBtn.style.cssText = `${btnBase}border-radius:${T.radiusSm} 0 0 ${T.radiusSm};background:transparent;color:${T.textMuted};border-color:${T.border};`;
