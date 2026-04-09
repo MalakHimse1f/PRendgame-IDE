@@ -375,8 +375,7 @@ function activate(context) {
 	taskBar.show();
 	context.subscriptions.push(taskBar);
 
-	// Auto-open board
-	vscode.commands.executeCommand('prendgame.openBoard');
+	// Board now lives in the native workbench ViewPane, no auto-open needed
 }
 
 function deactivate() {}
