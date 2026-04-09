@@ -174,15 +174,26 @@ export class PRendgameBoardPane extends ViewPane {
 			}
 		}
 
+		const commandService = this.commandService;
+
 		function renderTaskRow(parent: HTMLElement, task: ITask) {
 			const row = append(parent, $('div'));
-			row.style.cssText = 'display:flex;align-items:center;gap:6px;padding:0 16px 0 38px;height:22px;cursor:grab;';
+			row.style.cssText = 'display:flex;align-items:center;gap:6px;padding:0 16px 0 38px;height:22px;cursor:pointer;';
 			row.dataset.taskId = task.id;
 			row.draggable = true;
 			row.addEventListener('mouseenter', () => { if (!dragTaskId) { row.style.background = 'var(--vscode-list-hoverBackground)'; } });
 			row.addEventListener('mouseleave', () => { row.style.background = ''; });
 
+			let didDrag = false;
+			row.addEventListener('click', () => {
+				if (!didDrag) {
+					commandService.executeCommand('prendgame.openTaskDetail', task.id);
+				}
+				didDrag = false;
+			});
+
 			row.addEventListener('dragstart', (e) => {
+				didDrag = true;
 				dragTaskId = task.id;
 				// Find which group this task is in
 				for (const g of groups) {
