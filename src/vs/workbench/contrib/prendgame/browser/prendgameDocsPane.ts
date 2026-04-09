@@ -325,12 +325,21 @@ export function renderDocsContent(root: HTMLElement, commandService: { executeCo
 			} else if (line.startsWith('# ')) {
 				block.style.cssText += `font-size:16px;font-weight:700;color:${T.text};margin-top:14px;margin-bottom:6px;`;
 				block.textContent = line.slice(2);
-			} else if (line.startsWith('- [x] ')) {
-				block.style.cssText += `font-size:13px;color:#22c55e;`;
-				block.textContent = '\u2611 ' + line.slice(6);
-			} else if (line.startsWith('- [ ] ')) {
-				block.style.cssText += `font-size:13px;color:${T.textMuted};`;
-				block.textContent = '\u2610 ' + line.slice(6);
+			} else if (line.startsWith('- [x] ') || line.startsWith('- [ ] ')) {
+				const isChecked = line.startsWith('- [x] ');
+				const label = line.slice(6);
+				block.style.cssText += `font-size:13px;color:${isChecked ? '#22c55e' : T.textMuted};cursor:pointer;`;
+				block.textContent = (isChecked ? '\u2611 ' : '\u2610 ') + label;
+				const cbIndex = i;
+				block.addEventListener('click', () => {
+					const wasChecked = lines[cbIndex].startsWith('- [x] ');
+					const cbLabel = lines[cbIndex].slice(6);
+					lines[cbIndex] = wasChecked ? `- [ ] ${cbLabel}` : `- [x] ${cbLabel}`;
+					doc.content = lines.join('\n');
+					block.textContent = (wasChecked ? '\u2610 ' : '\u2611 ') + cbLabel;
+					block.style.color = wasChecked ? T.textMuted : '#22c55e';
+				});
+				continue; // Skip the generic click-to-edit handler below
 			} else if (line.startsWith('- ')) {
 				block.style.cssText += `font-size:13px;color:${T.text};padding-left:12px;`;
 				block.textContent = '\u2022 ' + line.slice(2);
