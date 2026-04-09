@@ -225,7 +225,7 @@ export class PRendgameBoardPane extends ViewPane {
 			pBar.style.cssText = `width:3px;height:14px;border-radius:1px;background:${pc};flex-shrink:0;`;
 
 			const tid = append(row, $('span'));
-			tid.style.cssText = 'font-size:11px;opacity:0.45;font-family:var(--monaco-monospace-font);white-space:nowrap;';
+			tid.style.cssText = 'font-size:11px;opacity:0.45;font-family:var(--monaco-monospace-font);white-space:nowrap;margin-right:4px;';
 			tid.textContent = task.id;
 
 			const title = append(row, $('span'));
