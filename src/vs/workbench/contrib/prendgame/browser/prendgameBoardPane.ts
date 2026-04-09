@@ -44,7 +44,8 @@ const STATUS_COLORS: Record<string, string> = {
 
 // -- Data ---------------------------------------------------------------------
 
-interface ITask { id: string; title: string; priority: string; initials: string; color: string; labels: string[]; description: string; dueDate: string }
+interface ISubtask { title: string; done: boolean; assignee?: string }
+interface ITask { id: string; title: string; priority: string; initials: string; color: string; labels: string[]; description: string; dueDate: string; subtasks: ISubtask[] }
 interface IGroup { id: string; name: string; tasks: ITask[]; collapsed: boolean }
 
 function getDueDateStyle(d: string): { color: string; label: string } {
@@ -59,18 +60,33 @@ function getDueDateStyle(d: string): { color: string; label: string } {
 }
 
 function getGroups(): IGroup[] {
-	const t = (id: string, title: string, priority: string, initials: string, color: string, labels: string[], description?: string, dueDate?: string): ITask => ({ id, title, priority, initials, color, labels, description: description || '', dueDate: dueDate || '' });
+	const t = (id: string, title: string, priority: string, initials: string, color: string, labels: string[], description?: string, dueDate?: string, subtasks?: ISubtask[]): ITask => ({ id, title, priority, initials, color, labels, description: description || '', dueDate: dueDate || '', subtasks: subtasks || [] });
 	return [
 		{
 			id: 'in_progress', name: 'In Progress', collapsed: false, tasks: [
-				t('PRE-3', 'Build kanban board webview', 'critical', 'ML', '#10b981', ['frontend', 'core'], 'Implement the main kanban board as a VS Code webview panel.\n\n- 5 default columns (configurable)\n- Drag-and-drop between columns\n- Task card rendering with title, assignee avatar, priority badge\n- Filter bar (assignee, priority, label)', '2026-04-08'),
-				t('PRE-4', 'Implement task detail view', 'high', 'SR', '#f59e0b', ['frontend'], 'When a user clicks a task card, show a detail view with all fields inline-editable.\n\n- Title, status, priority, assignee\n- Description with markdown rendering\n- Comments thread\n- Linked documents and code snippets', '2026-04-11'),
+				t('PRE-3', 'Build kanban board webview', 'critical', 'ML', '#10b981', ['frontend', 'core'], 'Implement the main kanban board as a VS Code webview panel.\n\n- 5 default columns (configurable)\n- Drag-and-drop between columns\n- Task card rendering with title, assignee avatar, priority badge\n- Filter bar (assignee, priority, label)', '2026-04-08', [
+					{ title: 'Render column headers with task counts', done: true },
+					{ title: 'Implement drag-and-drop between columns', done: true },
+					{ title: 'Build task card component', done: false, assignee: 'ML' },
+					{ title: 'Add filter bar with dropdowns', done: false, assignee: 'ML' },
+				]),
+				t('PRE-4', 'Implement task detail view', 'high', 'SR', '#f59e0b', ['frontend'], 'When a user clicks a task card, show a detail view with all fields inline-editable.\n\n- Title, status, priority, assignee\n- Description with markdown rendering\n- Comments thread\n- Linked documents and code snippets', '2026-04-11', [
+					{ title: 'Metadata grid with inline editing', done: true },
+					{ title: 'Description with click-to-edit', done: true },
+					{ title: 'Comments section', done: true },
+					{ title: 'Linked code snippets', done: false, assignee: 'SR' },
+					{ title: 'Activity log', done: false },
+				]),
 				t('PRE-5', 'Create sidebar tree views', 'high', 'RB', '#ef4444', ['frontend'], 'Register tree view providers in the PRendgame activity bar.\n\n- My Tasks grouped by status\n- Documents grouped by type\n- Sprints with task counts', '2026-04-09'),
 			]
 		},
 		{
 			id: 'todo', name: 'To Do', collapsed: false, tasks: [
-				t('PRE-6', 'Build document editor with PRD template', 'high', 'ML', '#10b981', ['docs'], '', '2026-04-14'),
+				t('PRE-6', 'Build document editor with PRD template', 'high', 'ML', '#10b981', ['docs'], '', '2026-04-14', [
+					{ title: 'Markdown rendering in sidebar', done: true },
+					{ title: 'Inline block editing', done: false, assignee: 'ML' },
+					{ title: 'Template picker for new docs', done: false },
+				]),
 				t('PRE-7', 'Implement list view for tasks', 'medium', 'SR', '#f59e0b', ['frontend'], '', '2026-04-16'),
 				t('PRE-8', 'Implement timeline view', 'medium', 'ML', '#10b981', ['frontend'], '', '2026-04-18'),
 				t('PRE-15', 'Sprint dashboard view', 'medium', 'ML', '#10b981', ['dashboard'], '', '2026-04-18'),
@@ -438,6 +454,119 @@ export function renderBoardContent(root: HTMLElement, commandService: { executeC
 			textarea.addEventListener('keydown', (ke) => { if (ke.key === 'Escape') { renderDesc(); } });
 		});
 
+		// Sub-tasks
+		if (task.subtasks.length > 0) {
+			const stSection = append(detailContainer, $('div'));
+			stSection.style.cssText = `padding:14px 20px;border-bottom:1px solid ${T.border};`;
+
+			const stDone = task.subtasks.filter(s => s.done).length;
+			const stTotal = task.subtasks.length;
+			const stPct = Math.round((stDone / stTotal) * 100);
+
+			const stHeader = append(stSection, $('div'));
+			stHeader.style.cssText = `display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;`;
+			const stTitle = append(stHeader, $('div'));
+			stTitle.style.cssText = `font-size:11px;font-weight:600;color:${T.textFaint};text-transform:uppercase;letter-spacing:0.06em;`;
+			stTitle.textContent = `Sub-tasks (${stDone}/${stTotal})`;
+			const stPctEl = append(stHeader, $('span'));
+			stPctEl.style.cssText = `font-size:10px;color:${stDone === stTotal ? '#22c55e' : T.textFaint};`;
+			stPctEl.textContent = `${stPct}%`;
+
+			// Progress bar
+			const stBarBg = append(stSection, $('div'));
+			stBarBg.style.cssText = `height:4px;border-radius:2px;background:${T.border};overflow:hidden;margin-bottom:10px;`;
+			const stBarFill = append(stBarBg, $('div'));
+			stBarFill.style.cssText = `height:100%;border-radius:2px;background:#22c55e;width:${stPct}%;transition:width 0.3s;`;
+
+			function updateProgress() {
+				const d = task.subtasks.filter(s => s.done).length;
+				const p = Math.round((d / stTotal) * 100);
+				stTitle.textContent = `Sub-tasks (${d}/${stTotal})`;
+				stPctEl.textContent = `${p}%`;
+				stPctEl.style.color = d === stTotal ? '#22c55e' : T.textFaint;
+				stBarFill.style.width = `${p}%`;
+			}
+
+			// Render sub-task items
+			for (const st of task.subtasks) {
+				const stRow = append(stSection, $('div'));
+				stRow.style.cssText = `display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer;`;
+
+				const stCheck = append(stRow, $('span'));
+				stCheck.style.cssText = `font-size:14px;cursor:pointer;flex-shrink:0;color:${st.done ? '#22c55e' : T.textFaint};`;
+				stCheck.textContent = st.done ? '\u2611' : '\u2610';
+
+				const stLabel = append(stRow, $('span'));
+				stLabel.style.cssText = `font-size:12px;color:${st.done ? T.textFaint : T.text};flex:1;${st.done ? 'text-decoration:line-through;' : ''}`;
+				stLabel.textContent = st.title;
+
+				if (st.assignee) {
+					const stAv = append(stRow, $('span'));
+					const stMember = members.find(m => m.initials === st.assignee);
+					stAv.style.cssText = `display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;font-size:7px;font-weight:600;color:#fff;background:${stMember ? stMember.color : '#52525b'};flex-shrink:0;`;
+					stAv.textContent = st.assignee;
+				}
+
+				stCheck.addEventListener('click', () => {
+					st.done = !st.done;
+					stCheck.textContent = st.done ? '\u2611' : '\u2610';
+					stCheck.style.color = st.done ? '#22c55e' : T.textFaint;
+					stLabel.style.color = st.done ? T.textFaint : T.text;
+					stLabel.style.textDecoration = st.done ? 'line-through' : 'none';
+					updateProgress();
+				});
+			}
+
+			// Add sub-task input
+			const stAddRow = append(stSection, $('div'));
+			stAddRow.style.cssText = `display:flex;gap:6px;margin-top:8px;`;
+			const stInput = document.createElement('input');
+			stInput.type = 'text';
+			stInput.placeholder = 'Add sub-task...';
+			stInput.style.cssText = `flex:1;background:${T.surface};border:1px solid ${T.border};color:${T.text};padding:4px 8px;border-radius:${T.radiusSm};font-size:11px;font-family:inherit;outline:none;box-sizing:border-box;`;
+			stInput.addEventListener('focus', () => { stInput.style.borderColor = T.accent; });
+			stInput.addEventListener('blur', () => { stInput.style.borderColor = T.border; });
+			stAddRow.appendChild(stInput);
+
+			const stAddBtn = append(stAddRow, $('span'));
+			stAddBtn.style.cssText = `padding:4px 10px;border-radius:${T.radiusSm};background:${T.accent};color:#fff;font-size:10px;font-weight:500;cursor:pointer;flex-shrink:0;`;
+			stAddBtn.textContent = 'Add';
+
+			function addSubtask() {
+				const text = stInput.value.trim();
+				if (!text) { return; }
+				const newSt: ISubtask = { title: text, done: false };
+				task.subtasks.push(newSt);
+				stInput.value = '';
+
+				// Render new item
+				const stRow = document.createElement('div');
+				stRow.style.cssText = `display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer;`;
+				const stCheck = document.createElement('span');
+				stCheck.style.cssText = `font-size:14px;cursor:pointer;flex-shrink:0;color:${T.textFaint};`;
+				stCheck.textContent = '\u2610';
+				const stLabel = document.createElement('span');
+				stLabel.style.cssText = `font-size:12px;color:${T.text};flex:1;`;
+				stLabel.textContent = text;
+				stRow.appendChild(stCheck);
+				stRow.appendChild(stLabel);
+				stSection.insertBefore(stRow, stAddRow);
+
+				stCheck.addEventListener('click', () => {
+					newSt.done = !newSt.done;
+					stCheck.textContent = newSt.done ? '\u2611' : '\u2610';
+					stCheck.style.color = newSt.done ? '#22c55e' : T.textFaint;
+					stLabel.style.color = newSt.done ? T.textFaint : T.text;
+					stLabel.style.textDecoration = newSt.done ? 'line-through' : 'none';
+					updateProgress();
+				});
+				updateProgress();
+			}
+
+			stAddBtn.addEventListener('click', addSubtask);
+			stInput.addEventListener('keydown', (ke) => { if (ke.key === 'Enter') { addSubtask(); } });
+		}
+
 		// Comments
 		const commentsSection = append(detailContainer, $('div'));
 		commentsSection.style.cssText = `padding:14px 20px;border-bottom:1px solid ${T.border};`;
@@ -688,7 +817,15 @@ export function renderBoardContent(root: HTMLElement, commandService: { executeC
 			const ds = getDueDateStyle(task.dueDate);
 			const dueEl = append(row, $('span'));
 			dueEl.style.cssText = `font-size:10px;color:${ds.color};white-space:nowrap;flex-shrink:0;`;
-			dueEl.textContent = task.dueDate.slice(5); // show MM-DD
+			dueEl.textContent = task.dueDate.slice(5);
+		}
+
+		// Sub-task progress
+		if (task.subtasks.length > 0) {
+			const stDone = task.subtasks.filter(s => s.done).length;
+			const stEl = append(row, $('span'));
+			stEl.style.cssText = `font-size:10px;color:${stDone === task.subtasks.length ? '#22c55e' : T.textFaint};white-space:nowrap;flex-shrink:0;`;
+			stEl.textContent = `${stDone}/${task.subtasks.length}`;
 		}
 	}
 
