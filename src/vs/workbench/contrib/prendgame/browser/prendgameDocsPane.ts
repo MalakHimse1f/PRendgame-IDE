@@ -342,7 +342,7 @@ export class PRendgameDocsPane extends ViewPane {
 
 		previewBtn.addEventListener('click', () => { mode = 'preview'; renderContent(); });
 		editBtn.addEventListener('click', () => { mode = 'edit'; renderContent(); });
-		editorBtn.addEventListener('click', () => { this.commandService.executeCommand('prendgame.openDocument', doc.id); });
+		editorBtn.addEventListener('click', () => { this.commandService.executeCommand('prendgame.openDocumentInEditor', doc.id); });
 
 		renderContent();
 	}

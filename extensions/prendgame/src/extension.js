@@ -122,7 +122,7 @@ class DocumentsProvider {
 			const item = new vscode.TreeItem(d.title, vscode.TreeItemCollapsibleState.None);
 			const icons = { approved: '$(check)', draft: '$(edit)', archived: '$(archive)' };
 			item.description = icons[d.status] || d.status;
-			item.command = { command: 'prendgame.openDocument', title: 'Open Document', arguments: [d.id] };
+			item.command = { command: 'prendgame.openDocumentInEditor', title: 'Open in Editor', arguments: [d.id] };
 			return item;
 		});
 	}
@@ -306,6 +306,15 @@ function activate(context) {
 				vscode.window.showTextDocument(uri);
 			}
 		});
+	}));
+
+	// -- Document in native editor --------------------------------------------
+	context.subscriptions.push(vscode.commands.registerCommand('prendgame.openDocumentInEditor', async (docId) => {
+		const doc = store.docs.documents.find(d => d.id === docId);
+		if (!doc) { return; }
+		const filePath = writeDocFile(doc);
+		const uri = vscode.Uri.file(filePath);
+		await vscode.window.showTextDocument(uri);
 	}));
 
 	// -- Sprint Dashboard -----------------------------------------------------

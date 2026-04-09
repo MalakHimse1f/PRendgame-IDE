@@ -60,6 +60,10 @@
 				"title": "PRendgame: Open Task Detail"
 			},
 			{
+				"command": "prendgame.openDocumentInEditor",
+				"title": "PRendgame: Open Document in Editor"
+			},
+			{
 				"command": "prendgame.openSprintDashboard",
 				"title": "PRendgame: Open Sprint Dashboard"
 			},
