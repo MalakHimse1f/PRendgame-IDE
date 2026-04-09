@@ -294,52 +294,89 @@ export function renderDocsContent(root: HTMLElement, commandService: { executeCo
 			tp.textContent = `${doc.tasksDone}/${doc.tasksTotal} tasks`;
 		}
 
-		// Mode toggle + content
+		// Open in Editor button (single, not a mode toggle)
+		const openEditorWrap = append(header, $('div'));
+		openEditorWrap.style.cssText = 'margin-top:10px;';
+		const openEditorBtn = append(openEditorWrap, $('span'));
+		openEditorBtn.style.cssText = `font-size:11px;padding:4px 12px;border-radius:${T.radiusSm};border:1px solid ${T.border};cursor:pointer;color:${T.textMuted};transition:all 0.12s;`;
+		openEditorBtn.textContent = 'Open in Editor';
+		openEditorBtn.addEventListener('mouseenter', () => { openEditorBtn.style.color = T.text; openEditorBtn.style.borderColor = T.accent; });
+		openEditorBtn.addEventListener('mouseleave', () => { openEditorBtn.style.color = T.textMuted; openEditorBtn.style.borderColor = T.border; });
+		openEditorBtn.addEventListener('click', () => { commandService.executeCommand('prendgame.openDocument', doc.id); });
+
+		// Inline editable content blocks
 		const contentSection = append(detailContainer, $('div'));
-		contentSection.style.cssText = 'padding:0 20px 20px;';
+		contentSection.style.cssText = `padding:12px 20px 20px;`;
 
-		const modeRow = append(contentSection, $('div'));
-		modeRow.style.cssText = 'display:flex;gap:0;margin:12px 0 10px;';
-		let mode = 'preview';
+		const lines = doc.content.split('\n');
+		for (let i = 0; i < lines.length; i++) {
+			const line = lines[i];
+			if (line.trim() === '') { continue; }
 
-		const previewBtn = append(modeRow, $('span'));
-		const editBtn = append(modeRow, $('span'));
-		const editorBtn = append(modeRow, $('span'));
-		const btnBase = `padding:5px 14px;font-size:11px;cursor:pointer;font-weight:500;transition:all 0.12s;border:1px solid ${T.border};`;
-		previewBtn.style.cssText = `${btnBase}border-radius:${T.radiusSm} 0 0 ${T.radiusSm};background:${T.accent};color:#fff;border-color:${T.accent};`;
-		previewBtn.textContent = 'Preview';
-		editBtn.style.cssText = `${btnBase}border-radius:0;background:transparent;color:${T.textMuted};border-left:none;`;
-		editBtn.textContent = 'Edit';
-		editorBtn.style.cssText = `${btnBase}border-radius:0 ${T.radiusSm} ${T.radiusSm} 0;background:transparent;color:${T.textMuted};border-left:none;`;
-		editorBtn.textContent = 'Open in Editor';
+			const block = append(contentSection, $('div'));
+			block.style.cssText = `cursor:text;padding:3px 4px;border-radius:${T.radiusSm};transition:background 0.1s;margin:1px 0;`;
+			block.addEventListener('mouseenter', () => { block.style.background = T.surfaceHover; });
+			block.addEventListener('mouseleave', () => { block.style.background = ''; });
 
-		const contentArea = append(contentSection, $('div'));
-
-		function renderContent() {
-			contentArea.textContent = '';
-			if (mode === 'preview') {
-				previewBtn.style.cssText = `${btnBase}border-radius:${T.radiusSm} 0 0 ${T.radiusSm};background:${T.accent};color:#fff;border-color:${T.accent};`;
-				editBtn.style.cssText = `${btnBase}border-radius:0;background:transparent;color:${T.textMuted};border-left:none;border-color:${T.border};`;
-				const preview = append(contentArea, $('div'));
-				preview.style.cssText = `font-size:13px;line-height:1.7;color:${T.text};`;
-				renderMarkdownToDOM(preview, doc.content);
+			// Render styled text
+			if (line.startsWith('## ')) {
+				block.style.cssText += `font-size:14px;font-weight:600;color:${T.text};margin-top:12px;margin-bottom:4px;border-bottom:1px solid ${T.border};padding-bottom:4px;`;
+				block.textContent = line.slice(3);
+			} else if (line.startsWith('# ')) {
+				block.style.cssText += `font-size:16px;font-weight:700;color:${T.text};margin-top:14px;margin-bottom:6px;`;
+				block.textContent = line.slice(2);
+			} else if (line.startsWith('- [x] ')) {
+				block.style.cssText += `font-size:13px;color:#22c55e;`;
+				block.textContent = '\u2611 ' + line.slice(6);
+			} else if (line.startsWith('- [ ] ')) {
+				block.style.cssText += `font-size:13px;color:${T.textMuted};`;
+				block.textContent = '\u2610 ' + line.slice(6);
+			} else if (line.startsWith('- ')) {
+				block.style.cssText += `font-size:13px;color:${T.text};padding-left:12px;`;
+				block.textContent = '\u2022 ' + line.slice(2);
+			} else if (/^\d+\. /.test(line)) {
+				block.style.cssText += `font-size:13px;color:${T.text};padding-left:12px;`;
+				block.textContent = line;
 			} else {
-				editBtn.style.cssText = `${btnBase}border-radius:0;background:${T.accent};color:#fff;border-color:${T.accent};border-left:none;`;
-				previewBtn.style.cssText = `${btnBase}border-radius:${T.radiusSm} 0 0 ${T.radiusSm};background:transparent;color:${T.textMuted};border-color:${T.border};`;
-				const textarea = document.createElement('textarea');
-				textarea.value = doc.content;
-				textarea.style.cssText = `width:100%;box-sizing:border-box;min-height:300px;background:${T.surface};border:1px solid ${T.border};color:${T.text};padding:12px;border-radius:${T.radius};font-size:12px;font-family:var(--monaco-monospace-font);line-height:1.6;outline:none;resize:vertical;`;
-				textarea.addEventListener('focus', () => { textarea.style.borderColor = T.accent; });
-				textarea.addEventListener('blur', () => { textarea.style.borderColor = T.border; doc.content = textarea.value; });
-				contentArea.appendChild(textarea);
+				block.style.cssText += `font-size:13px;color:${T.text};line-height:1.6;`;
+				block.textContent = line;
 			}
+
+			// Click to edit inline
+			const lineIndex = i;
+			block.addEventListener('click', () => {
+				const isHeading = lines[lineIndex].startsWith('#');
+				const input = isHeading ? document.createElement('input') : document.createElement('textarea');
+				if (isHeading) {
+					(input as HTMLInputElement).type = 'text';
+				}
+				input.value = lines[lineIndex];
+				input.style.cssText = `width:100%;box-sizing:border-box;background:${T.surface};border:1px solid ${T.accent};color:${T.text};padding:4px 8px;border-radius:${T.radiusSm};font-size:13px;font-family:inherit;outline:none;${isHeading ? '' : 'min-height:60px;resize:vertical;'}`;
+				block.textContent = '';
+				block.style.background = '';
+				block.appendChild(input);
+				input.focus();
+
+				const save = () => {
+					lines[lineIndex] = input.value;
+					doc.content = lines.join('\n');
+					// Re-render this block
+					block.textContent = '';
+					const newLine = lines[lineIndex];
+					if (newLine.startsWith('## ')) { block.textContent = newLine.slice(3); }
+					else if (newLine.startsWith('# ')) { block.textContent = newLine.slice(2); }
+					else if (newLine.startsWith('- [x] ')) { block.textContent = '\u2611 ' + newLine.slice(6); }
+					else if (newLine.startsWith('- [ ] ')) { block.textContent = '\u2610 ' + newLine.slice(6); }
+					else if (newLine.startsWith('- ')) { block.textContent = '\u2022 ' + newLine.slice(2); }
+					else { block.textContent = newLine; }
+				};
+				input.addEventListener('blur', save);
+				input.addEventListener('keydown', (ke) => {
+					if (ke.key === 'Escape') { input.value = lines[lineIndex]; input.blur(); }
+					if (ke.key === 'Enter' && isHeading) { input.blur(); }
+				});
+			});
 		}
-
-		previewBtn.addEventListener('click', () => { mode = 'preview'; renderContent(); });
-		editBtn.addEventListener('click', () => { mode = 'edit'; renderContent(); });
-		editorBtn.addEventListener('click', () => { commandService.executeCommand('prendgame.openDocumentInEditor', doc.id); });
-
-		renderContent();
 	}
 
 	// Initial render
