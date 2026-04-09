@@ -11,11 +11,13 @@ import { registerIcon } from '../../../../platform/theme/common/iconRegistry.js'
 import { ViewPaneContainer } from '../../../browser/parts/views/viewPaneContainer.js';
 import { IViewContainersRegistry, IViewDescriptor, IViewsRegistry, ViewContainerLocation, Extensions as ViewExtensions } from '../../../common/views.js';
 import { PRendgameBoardPane } from './prendgameBoardPane.js';
+import { PRendgameDocsPane } from './prendgameDocsPane.js';
 
 // --- PRendgame View Container Registration ---
 
 const PRENDGAME_CONTAINER_ID = 'workbench.view.prendgame';
 const PRENDGAME_BOARD_VIEW_ID = 'workbench.view.prendgame.board';
+const PRENDGAME_DOCS_VIEW_ID = 'workbench.view.prendgame.docs';
 
 const prendgameIcon = registerIcon('prendgame-view-icon', Codicon.project, localize2('prendgameViewIcon', 'View icon of the PRendgame panel.'));
 
@@ -23,7 +25,7 @@ const prendgameViewContainer = Registry.as<IViewContainersRegistry>(ViewExtensio
 	id: PRENDGAME_CONTAINER_ID,
 	title: localize2('prendgame.viewContainer.label', "PRendgame"),
 	icon: prendgameIcon,
-	ctorDescriptor: new SyncDescriptor(ViewPaneContainer, [PRENDGAME_CONTAINER_ID, { mergeViewWithContainerWhenSingleView: true }]),
+	ctorDescriptor: new SyncDescriptor(ViewPaneContainer, [PRENDGAME_CONTAINER_ID, { mergeViewWithContainerWhenSingleView: false }]),
 	storageId: PRENDGAME_CONTAINER_ID,
 	hideIfEmpty: false,
 	order: 10,
@@ -40,6 +42,20 @@ const boardViewDescriptor: IViewDescriptor = {
 	canToggleVisibility: false,
 	canMoveView: true,
 	ctorDescriptor: new SyncDescriptor(PRendgameBoardPane),
+	order: 1,
 };
 
-Registry.as<IViewsRegistry>(ViewExtensions.ViewsRegistry).registerViews([boardViewDescriptor], prendgameViewContainer);
+// --- Docs View ---
+
+const docsViewDescriptor: IViewDescriptor = {
+	id: PRENDGAME_DOCS_VIEW_ID,
+	containerIcon: prendgameViewContainer.icon,
+	containerTitle: prendgameViewContainer.title.value,
+	name: localize2('prendgame.docs.name', "Documents"),
+	canToggleVisibility: false,
+	canMoveView: true,
+	ctorDescriptor: new SyncDescriptor(PRendgameDocsPane),
+	order: 2,
+};
+
+Registry.as<IViewsRegistry>(ViewExtensions.ViewsRegistry).registerViews([boardViewDescriptor, docsViewDescriptor], prendgameViewContainer);
