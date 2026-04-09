@@ -5,6 +5,7 @@
 
 import { $, append } from '../../../../base/browser/dom.js';
 import { IViewPaneOptions, ViewPane } from '../../../browser/parts/views/viewPane.js';
+import './prendgame.css';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -296,8 +297,5 @@ export class PRendgameBoardPane extends ViewPane {
 
 	protected override layoutBody(height: number, width: number): void {
 		super.layoutBody(height, width);
-		if (this.boardContainer) {
-			this.boardContainer.style.height = `${height - 120}px`;
-		}
 	}
 }

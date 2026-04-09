@@ -8,7 +8,9 @@
 .prendgame-board-pane {
 	display: flex;
 	flex-direction: column;
-	overflow: hidden;
+	overflow-y: auto;
+	overflow-x: hidden;
+	height: 100%;
 }
 
 /* Header */
@@ -129,7 +131,7 @@
 	padding: 10px 12px;
 	overflow-x: auto;
 	overflow-y: auto;
-	flex: 1;
+	min-height: 200px;
 }
 
 .pg-column {
