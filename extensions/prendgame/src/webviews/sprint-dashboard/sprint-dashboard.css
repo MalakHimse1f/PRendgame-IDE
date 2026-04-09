@@ -1,0 +1,52 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) PRendgame. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+.sd { padding: 24px; max-width: 900px; margin: 0 auto; }
+.sd-loading { display: flex; align-items: center; justify-content: center; height: 100vh; opacity: 0.5; }
+.sd-header { margin-bottom: 16px; }
+.sd-title { font-size: 20px; font-weight: 600; }
+.sd-dates { font-size: 13px; color: var(--pg-muted); }
+
+.sd-sprint-nav { display: flex; gap: 6px; margin-bottom: 20px; }
+.sd-sprint-chip {
+	padding: 6px 14px; border-radius: 16px; font-size: 12px; cursor: pointer;
+	border: 1px solid var(--pg-border); background: none; color: var(--pg-fg);
+	transition: all 0.12s;
+}
+.sd-sprint-chip--active { background: var(--pg-accent); border-color: var(--pg-accent); color: #fff; }
+.sd-sprint-chip--done { opacity: 0.5; }
+
+.sd-goal {
+	background: var(--pg-surface); border: 1px solid var(--pg-border);
+	border-radius: var(--pg-radius); padding: 16px; margin-bottom: 24px;
+}
+.sd-goal__label { font-size: 11px; color: var(--pg-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+.sd-goal__text { font-size: 14px; line-height: 1.5; }
+
+.sd-section-title { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--pg-muted); margin-bottom: 12px; }
+
+.sd-progress { margin-bottom: 24px; }
+.sd-progress-bar { height: 10px; background: var(--pg-surface); border-radius: 5px; overflow: hidden; border: 1px solid var(--pg-border); }
+.sd-progress-fill { height: 100%; background: linear-gradient(90deg, #22c55e, #16a34a); border-radius: 5px; transition: width 0.5s ease-out; }
+.sd-progress-label { font-size: 12px; color: var(--pg-muted); margin-top: 4px; }
+
+.sd-stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 28px; }
+.sd-stat { background: var(--pg-surface); border: 1px solid var(--pg-border); border-radius: var(--pg-radius); padding: 16px; text-align: center; }
+.sd-stat__value { font-size: 28px; font-weight: 700; }
+.sd-stat__label { font-size: 11px; color: var(--pg-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+.sd-stat--done .sd-stat__value { color: var(--pg-online); }
+.sd-stat--review .sd-stat__value { color: #a855f7; }
+.sd-stat--progress .sd-stat__value { color: #3b82f6; }
+.sd-stat--todo .sd-stat__value { color: #6b7280; }
+
+.sd-workload-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+.sd-workload {
+	background: var(--pg-surface); border: 1px solid var(--pg-border);
+	border-radius: var(--pg-radius); padding: 12px; display: flex; align-items: center; gap: 12px;
+}
+.sd-workload__info { flex: 1; }
+.sd-workload__name { font-size: 13px; font-weight: 500; }
+.sd-workload__role { font-size: 11px; color: var(--pg-muted); }
+.sd-workload__bar { height: 4px; background: var(--pg-border); border-radius: 2px; margin-top: 6px; overflow: hidden; }
+.sd-workload__fill { height: 100%; background: var(--pg-accent); border-radius: 2px; transition: width 0.4s ease-out; }

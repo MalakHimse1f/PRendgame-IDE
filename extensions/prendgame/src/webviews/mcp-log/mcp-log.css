@@ -1,0 +1,62 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) PRendgame. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+.mcp { padding: 16px; max-width: 900px; }
+.mcp-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
+.mcp-title { font-size: 16px; font-weight: 600; }
+.mcp-subtitle { font-size: 12px; color: var(--pg-muted); }
+
+.mcp-status {
+	display: flex; align-items: center; gap: 8px;
+	padding: 8px 12px; font-size: 12px;
+	background: color-mix(in srgb, var(--pg-online) 8%, transparent);
+	border: 1px solid color-mix(in srgb, var(--pg-online) 20%, transparent);
+	border-radius: var(--pg-radius); margin-bottom: 12px;
+}
+.mcp-status__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--pg-online); flex-shrink: 0; }
+
+.mcp-info {
+	background: var(--pg-surface); border: 1px solid var(--pg-border);
+	border-radius: var(--pg-radius); padding: 10px 14px;
+	font-size: 12px; line-height: 1.6; margin-bottom: 16px;
+}
+
+.mcp-entries { display: flex; flex-direction: column; gap: 6px; margin-bottom: 20px; }
+
+.mcp-entry {
+	border: 1px solid var(--pg-border); border-radius: var(--pg-radius);
+	overflow: hidden; transition: border-color 0.3s;
+}
+.mcp-entry--new { border-color: var(--pg-accent); animation: mcp-flash 1s ease-out; }
+
+@keyframes mcp-flash {
+	0% { background: color-mix(in srgb, var(--pg-accent) 15%, transparent); }
+	100% { background: transparent; }
+}
+
+.mcp-entry__header {
+	display: flex; align-items: center; gap: 8px;
+	padding: 6px 10px; background: var(--pg-surface); font-size: 12px;
+}
+.mcp-entry__time { font-family: var(--pg-font-mono); color: var(--pg-muted); font-size: 11px; }
+.mcp-entry__agent { padding: 2px 8px; border-radius: 3px; font-size: 10px; color: #fff; font-weight: 500; }
+.mcp-entry__tool { font-family: var(--pg-font-mono); color: var(--pg-accent); }
+.mcp-entry__duration { margin-left: auto; font-size: 11px; color: var(--pg-muted); }
+
+.mcp-entry__body { padding: 6px 10px; }
+.mcp-entry__params {
+	font-family: var(--pg-font-mono); font-size: 11px;
+	background: rgba(0,0,0,0.15); padding: 4px 8px;
+	border-radius: var(--pg-radius-sm); margin-bottom: 4px;
+}
+.mcp-entry__result { color: var(--pg-done-fg); font-size: 12px; }
+
+.mcp-config { margin-top: 20px; }
+.mcp-config__title { font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+.mcp-config__code {
+	font-family: var(--pg-font-mono); font-size: 11px;
+	background: var(--pg-surface); border: 1px solid var(--pg-border);
+	padding: 12px; border-radius: var(--pg-radius);
+	white-space: pre; overflow-x: auto; line-height: 1.6;
+}

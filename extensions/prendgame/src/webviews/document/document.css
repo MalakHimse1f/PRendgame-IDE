@@ -1,0 +1,44 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) PRendgame. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+.doc-layout { display: grid; grid-template-columns: 1fr 230px; min-height: 100vh; }
+.doc-loading { display: flex; align-items: center; justify-content: center; height: 100vh; opacity: 0.5; }
+.doc-main { padding: 24px 32px; max-width: 700px; }
+
+.doc-mode-toggle { display: flex; gap: 0; margin-bottom: 16px; }
+.doc-mode-toggle .pg-btn { border-radius: 0; }
+.doc-mode-toggle .pg-btn:first-child { border-radius: var(--pg-radius-sm) 0 0 var(--pg-radius-sm); }
+.doc-mode-toggle .pg-btn:last-child { border-radius: 0 var(--pg-radius-sm) var(--pg-radius-sm) 0; }
+
+.doc-title { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+.doc-meta-bar { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--pg-muted); margin-bottom: 20px; }
+.doc-meta-date { margin-left: auto; }
+
+.doc-content { line-height: 1.8; font-size: 14px; }
+.doc-content h1 { font-size: 20px; margin: 20px 0 8px; }
+.doc-content h2 { font-size: 17px; margin: 18px 0 8px; border-bottom: 1px solid var(--pg-border); padding-bottom: 4px; }
+.doc-content h3 { font-size: 14px; margin: 14px 0 6px; }
+.doc-content hr { border: none; border-top: 1px solid var(--pg-border); margin: 16px 0; }
+.doc-content li { margin-left: 20px; margin-bottom: 4px; }
+.doc-content code { background: rgba(255,255,255,0.08); padding: 1px 4px; border-radius: 3px; font-family: var(--pg-font-mono); font-size: 12px; }
+.doc-content pre.doc-codeblock { background: var(--pg-surface); padding: 12px; border-radius: var(--pg-radius); overflow-x: auto; margin: 12px 0; font-size: 12px; }
+.doc-check { margin: 4px 0; }
+.doc-check input { margin-right: 6px; }
+.doc-mermaid { border: 1px solid var(--pg-border); border-radius: var(--pg-radius); margin: 16px 0; overflow: hidden; }
+.doc-mermaid__label { font-size: 11px; padding: 6px 12px; background: var(--pg-surface); border-bottom: 1px solid var(--pg-border); color: var(--pg-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.doc-mermaid pre { padding: 12px; font-size: 12px; margin: 0; }
+
+.doc-editor { width: 100%; min-height: 500px; font-family: var(--pg-font-mono); font-size: 13px; line-height: 1.6; resize: vertical; }
+
+/* Sidebar */
+.doc-sidebar { border-left: 1px solid var(--pg-border); padding: 16px; }
+.doc-sidebar__section { margin-bottom: 20px; }
+.doc-sidebar__title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--pg-muted); margin-bottom: 8px; font-weight: 600; }
+.doc-sidebar__row { font-size: 12px; margin-bottom: 4px; }
+.doc-sidebar__link {
+	font-size: 12px; padding: 6px 8px; border-radius: var(--pg-radius-sm);
+	cursor: pointer; transition: background 0.1s;
+}
+.doc-sidebar__link:hover { background: var(--pg-hover); }
+.doc-sidebar__link-id { font-family: var(--pg-font-mono); opacity: 0.5; margin-right: 4px; }

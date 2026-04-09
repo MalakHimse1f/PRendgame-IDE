@@ -1,0 +1,162 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) PRendgame. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/* Board Layout */
+.board { display: flex; flex-direction: column; height: 100vh; }
+.board-loading { display: flex; align-items: center; justify-content: center; height: 100vh; opacity: 0.5; }
+
+/* Header */
+.board-header {
+	display: flex; align-items: center; justify-content: space-between;
+	padding: 10px 16px; border-bottom: 1px solid var(--pg-border);
+}
+.board-header__left { display: flex; align-items: center; gap: 8px; }
+.board-project-key {
+	font-size: 11px; font-weight: 600; color: var(--pg-accent);
+	background: var(--pg-badge); padding: 2px 8px; border-radius: 3px;
+}
+.board-title { font-size: 15px; font-weight: 600; }
+
+/* Presence */
+.board-presence { display: flex; gap: 4px; }
+.presence-item { position: relative; }
+.presence-dot {
+	position: absolute; bottom: -1px; right: -1px;
+	width: 8px; height: 8px; border-radius: 50%;
+	border: 2px solid var(--pg-bg);
+}
+.presence-dot--online { background: var(--pg-online); }
+.presence-dot--away { background: var(--pg-away); }
+
+/* Sprint banner */
+.board-sprint-banner {
+	display: flex; align-items: center; gap: 10px;
+	padding: 6px 16px; font-size: 12px;
+	background: color-mix(in srgb, var(--pg-accent) 8%, transparent);
+	border-bottom: 1px solid var(--pg-border);
+}
+.board-sprint-dates { opacity: 0.5; }
+
+/* Tabs */
+.board-tabs {
+	display: flex; padding: 0 16px;
+	border-bottom: 1px solid var(--pg-border);
+}
+.board-tab {
+	padding: 8px 16px; cursor: pointer; font-size: 13px;
+	border: none; background: none; color: var(--pg-fg);
+	border-bottom: 2px solid transparent; opacity: 0.5;
+	transition: opacity 0.1s, border-color 0.1s;
+}
+.board-tab:hover { opacity: 0.8; }
+.board-tab--active { opacity: 1; border-bottom-color: var(--pg-accent); }
+
+/* Filters */
+.board-filters {
+	display: flex; gap: 8px; padding: 8px 16px; align-items: center;
+	border-bottom: 1px solid var(--pg-border);
+}
+.board-filters__label { font-size: 11px; opacity: 0.5; text-transform: uppercase; letter-spacing: 0.5px; }
+
+/* Kanban */
+.board-kanban {
+	display: flex; gap: 12px; padding: 12px 16px;
+	overflow-x: auto; flex: 1; min-height: 0;
+}
+.board-column { min-width: 260px; max-width: 300px; flex: 1; display: flex; flex-direction: column; }
+.board-column__header {
+	display: flex; justify-content: space-between; align-items: center;
+	padding: 6px 4px; font-size: 11px; text-transform: uppercase;
+	letter-spacing: 0.5px; opacity: 0.6; user-select: none;
+}
+.board-column__count {
+	background: var(--pg-badge); padding: 0 6px;
+	border-radius: 8px; font-size: 10px; min-width: 18px; text-align: center;
+}
+.board-column__body {
+	flex: 1; display: flex; flex-direction: column; gap: 6px;
+	padding: 4px; border-radius: var(--pg-radius);
+	min-height: 60px; transition: background 0.15s;
+}
+
+/* Add Column */
+.board-add-column {
+	min-width: 48px; display: flex; align-items: flex-start;
+	justify-content: center; padding-top: 28px;
+	opacity: 0.2; cursor: pointer; font-size: 22px; user-select: none;
+	transition: opacity 0.15s;
+}
+.board-add-column:hover { opacity: 0.5; }
+
+/* Task Card */
+.task-card {
+	background: var(--pg-surface); border: 1px solid var(--pg-border);
+	border-radius: var(--pg-radius); padding: 10px; cursor: pointer;
+	transition: border-color 0.12s, box-shadow 0.12s, transform 0.12s;
+	user-select: none;
+}
+.task-card:hover {
+	border-color: var(--pg-accent);
+	box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+	transform: translateY(-1px);
+}
+.task-card--ghost {
+	opacity: 0.4; background: var(--pg-active);
+	border: 2px dashed var(--pg-accent);
+	box-shadow: none; transform: none;
+}
+.task-card--chosen { box-shadow: 0 4px 16px rgba(0,0,0,0.35); transform: rotate(1.5deg) scale(1.02); }
+.task-card--drag { opacity: 0; }
+
+.task-card__header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.task-card__id { font-size: 11px; font-family: var(--pg-font-mono); opacity: 0.45; }
+.task-card__title { font-size: 13px; line-height: 1.4; margin-bottom: 8px; }
+.task-card__footer { display: flex; justify-content: space-between; align-items: center; }
+.task-card__labels { display: flex; gap: 4px; flex-wrap: wrap; }
+
+/* List View */
+.list-view { padding: 0 16px; flex: 1; overflow: auto; }
+.list-table { width: 100%; border-collapse: collapse; }
+.list-th {
+	text-align: left; padding: 8px; font-size: 11px; text-transform: uppercase;
+	letter-spacing: 0.5px; opacity: 0.45; border-bottom: 1px solid var(--pg-border);
+	cursor: pointer; user-select: none; white-space: nowrap;
+}
+.list-th:hover { opacity: 0.7; }
+.list-th--sorted { opacity: 0.8; color: var(--pg-accent); }
+.list-row { cursor: pointer; transition: background 0.1s; }
+.list-row:hover { background: var(--pg-hover); }
+.list-td { padding: 8px; border-bottom: 1px solid var(--pg-border); font-size: 13px; }
+.list-td--id { font-family: var(--pg-font-mono); font-size: 12px; opacity: 0.5; width: 70px; }
+.list-td--title { max-width: 300px; }
+.list-td--assignee { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+
+/* Timeline View */
+.timeline-view { padding: 0 16px; flex: 1; overflow: auto; }
+.timeline-table { width: 100%; border-collapse: collapse; min-width: 800px; }
+.timeline-table th {
+	padding: 8px; font-size: 11px; text-transform: uppercase; opacity: 0.45;
+	border-bottom: 1px solid var(--pg-border); text-align: center;
+}
+.timeline-th--member { text-align: left; }
+.timeline-td--member {
+	white-space: nowrap; padding: 8px; border-bottom: 1px solid var(--pg-border);
+	display: flex; align-items: center; gap: 6px;
+}
+.timeline-cell {
+	padding: 4px; border-bottom: 1px solid var(--pg-border);
+	border-left: 1px solid var(--pg-border); vertical-align: top; min-width: 100px;
+}
+.timeline-bar {
+	font-size: 10px; font-family: var(--pg-font-mono); padding: 3px 6px;
+	border-radius: 3px; cursor: pointer; white-space: nowrap;
+	overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px;
+	transition: opacity 0.1s;
+}
+.timeline-bar:hover { opacity: 0.8; }
+.timeline-bar--critical { background: var(--pg-critical); color: #fff; }
+.timeline-bar--high { background: var(--pg-high); color: #fff; }
+.timeline-bar--medium { background: var(--pg-medium); color: #fff; }
+.timeline-bar--low { background: var(--pg-low); color: #d1d5db; }

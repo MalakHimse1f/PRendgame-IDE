@@ -1,0 +1,158 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) PRendgame. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+:root {
+	--pg-bg: var(--vscode-editor-background, #1e1e1e);
+	--pg-fg: var(--vscode-editor-foreground, #cccccc);
+	--pg-border: var(--vscode-panel-border, #333);
+	--pg-surface: var(--vscode-editorWidget-background, #252526);
+	--pg-hover: var(--vscode-list-hoverBackground, #2a2d2e);
+	--pg-active: var(--vscode-list-activeSelectionBackground, #094771);
+	--pg-accent: var(--vscode-focusBorder, #007acc);
+	--pg-accent-fg: #ffffff;
+	--pg-badge: var(--vscode-badge-background, #4d4d4d);
+	--pg-muted: var(--vscode-descriptionForeground, #888);
+	--pg-input-bg: var(--vscode-input-background, #3c3c3c);
+	--pg-input-border: var(--vscode-input-border, #555);
+	--pg-input-fg: var(--vscode-input-foreground, #cccccc);
+	--pg-font: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif);
+	--pg-font-mono: var(--vscode-editor-font-family, 'SF Mono', Menlo, Monaco, monospace);
+	--pg-font-size: var(--vscode-font-size, 13px);
+	--pg-radius: 6px;
+	--pg-radius-sm: 4px;
+
+	/* Priority colors */
+	--pg-critical: #dc2626;
+	--pg-high: #ea580c;
+	--pg-medium: #ca8a04;
+	--pg-low: #4b5563;
+
+	/* Status colors */
+	--pg-done: #166534;
+	--pg-done-fg: #86efac;
+	--pg-in-progress: #1e40af;
+	--pg-in-progress-fg: #93c5fd;
+	--pg-in-review: #6b21a8;
+	--pg-in-review-fg: #d8b4fe;
+	--pg-todo: #374151;
+	--pg-todo-fg: #d1d5db;
+	--pg-backlog: #1f2937;
+	--pg-backlog-fg: #9ca3af;
+
+	/* Presence */
+	--pg-online: #22c55e;
+	--pg-away: #eab308;
+	--pg-offline: #6b7280;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+	font-family: var(--pg-font);
+	font-size: var(--pg-font-size);
+	color: var(--pg-fg);
+	background: var(--pg-bg);
+	line-height: 1.5;
+	overflow-x: hidden;
+}
+
+/* Shared components */
+.pg-avatar {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 50%;
+	font-weight: 600;
+	color: #fff;
+	flex-shrink: 0;
+}
+.pg-avatar--sm { width: 22px; height: 22px; font-size: 9px; }
+.pg-avatar--md { width: 28px; height: 28px; font-size: 10px; }
+.pg-avatar--lg { width: 36px; height: 36px; font-size: 13px; }
+
+.pg-badge {
+	display: inline-block;
+	padding: 1px 8px;
+	border-radius: 10px;
+	font-size: 11px;
+	font-weight: 500;
+	white-space: nowrap;
+}
+.pg-badge--critical { background: var(--pg-critical); color: #fff; }
+.pg-badge--high { background: var(--pg-high); color: #fff; }
+.pg-badge--medium { background: var(--pg-medium); color: #fff; }
+.pg-badge--low { background: var(--pg-low); color: #d1d5db; }
+
+.pg-status {
+	display: inline-block;
+	padding: 2px 8px;
+	border-radius: 10px;
+	font-size: 11px;
+	white-space: nowrap;
+}
+.pg-status--done { background: var(--pg-done); color: var(--pg-done-fg); }
+.pg-status--in_progress { background: var(--pg-in-progress); color: var(--pg-in-progress-fg); }
+.pg-status--in_review { background: var(--pg-in-review); color: var(--pg-in-review-fg); }
+.pg-status--todo { background: var(--pg-todo); color: var(--pg-todo-fg); }
+.pg-status--backlog { background: var(--pg-backlog); color: var(--pg-backlog-fg); }
+
+.pg-label {
+	display: inline-block;
+	font-size: 10px;
+	padding: 1px 6px;
+	border-radius: 3px;
+	background: var(--pg-badge);
+	opacity: 0.8;
+}
+
+.pg-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 5px 12px;
+	border-radius: var(--pg-radius-sm);
+	border: 1px solid var(--pg-border);
+	background: var(--pg-surface);
+	color: var(--pg-fg);
+	font-size: 12px;
+	cursor: pointer;
+	transition: background 0.1s, border-color 0.1s;
+}
+.pg-btn:hover { background: var(--pg-hover); border-color: var(--pg-accent); }
+.pg-btn--primary { background: var(--pg-accent); border-color: var(--pg-accent); color: var(--pg-accent-fg); }
+.pg-btn--primary:hover { opacity: 0.9; }
+
+.pg-input {
+	background: var(--pg-input-bg);
+	border: 1px solid var(--pg-input-border);
+	color: var(--pg-input-fg);
+	padding: 5px 8px;
+	border-radius: var(--pg-radius-sm);
+	font-size: 12px;
+	font-family: var(--pg-font);
+	outline: none;
+	transition: border-color 0.15s;
+}
+.pg-input:focus { border-color: var(--pg-accent); }
+
+.pg-select {
+	background: var(--pg-input-bg);
+	border: 1px solid var(--pg-input-border);
+	color: var(--pg-input-fg);
+	padding: 4px 8px;
+	border-radius: var(--pg-radius-sm);
+	font-size: 12px;
+	cursor: pointer;
+}
+
+/* Transitions */
+.pg-fade-enter { opacity: 0; transform: translateY(4px); }
+.pg-fade-enter-active { opacity: 1; transform: translateY(0); transition: all 0.15s ease-out; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--pg-border); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--pg-muted); }
