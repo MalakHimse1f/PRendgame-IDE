@@ -54,6 +54,50 @@
 			"createdAt": "2026-03-27T10:00:00Z",
 			"updatedAt": "2026-03-30T14:00:00Z",
 			"content": "# Technical Spec — Authentication\n\n## Approach\nSupabase Auth with email/password + GitHub OAuth.\n\n## Flow\n1. User clicks 'Sign In' in status bar\n2. Extension opens browser for Supabase OAuth\n3. Redirect back to prendgame:// protocol handler\n4. Token stored in VS Code SecretStorage\n5. SyncService uses token for Supabase client"
+		},
+		{
+			"id": "doc-prd-v5",
+			"title": "PRD v5 — Product Workspace",
+			"type": "prd",
+			"author": "user-001",
+			"status": "draft",
+			"linkedTasks": [],
+			"createdAt": "2026-04-09T10:00:00Z",
+			"updatedAt": "2026-04-09T10:00:00Z",
+			"content": "# PRD v5 — Product Workspace\n\n**Status:** Draft\n\n## Overview\n\nA Notion-style document workspace for Product Managers inside PRendgame.\n\n## Goals\n\n1. PMs can create rich documents inside PRendgame\n2. Documents have custom attributes and multiple views\n3. Documents can be converted into engineering tasks\n4. Everything syncs to Supabase"
+		},
+		{
+			"id": "doc-story-onboard",
+			"title": "User Story — PM Onboarding Flow",
+			"type": "prd",
+			"author": "user-001",
+			"status": "draft",
+			"linkedTasks": [],
+			"createdAt": "2026-04-08T09:00:00Z",
+			"updatedAt": "2026-04-08T09:00:00Z",
+			"content": "# PM Onboarding Flow\n\n## As a new PM\n\nI want to quickly understand how to create documents, assign tasks, and track sprint progress so that I can be productive on day one.\n\n## Acceptance Criteria\n\n- [ ] Welcome walkthrough for PMs\n- [ ] Template picker on first document creation\n- [ ] Sample project with pre-populated data"
+		},
+		{
+			"id": "doc-research-mcp",
+			"title": "Research — MCP Protocol Feasibility",
+			"type": "spec",
+			"author": "user-003",
+			"status": "approved",
+			"linkedTasks": ["PRE-9"],
+			"createdAt": "2026-04-03T10:00:00Z",
+			"updatedAt": "2026-04-03T10:00:00Z",
+			"content": "# MCP Protocol Feasibility\n\n## Summary\n\nMCP (Model Context Protocol) is viable for exposing PRendgame data to external AI agents.\n\n## Findings\n\n- Claude Code supports MCP natively\n- MCP servers can run as local processes\n- Tool definitions are straightforward JSON schema\n- Latency is acceptable (sub-100ms for local calls)\n\n## Recommendation\n\nProceed with MCP as the primary AI integration protocol."
+		},
+		{
+			"id": "doc-notes-retro",
+			"title": "Meeting Notes — Sprint 1 Retrospective",
+			"type": "prd",
+			"author": "user-002",
+			"status": "draft",
+			"linkedTasks": [],
+			"createdAt": "2026-04-04T14:00:00Z",
+			"updatedAt": "2026-04-04T14:00:00Z",
+			"content": "# Sprint 1 Retrospective\n\n**Date:** 2026-04-04\n**Attendees:** Alex, Taylor, Jordan, Morgan, Sam, Riley, Avery\n\n## What went well\n- Auth flow completed ahead of schedule\n- Supabase schema is solid\n\n## What could improve\n- Need better task estimation\n- PR reviews took too long\n\n## Action items\n- [ ] Set up review SLAs\n- [ ] Add story points to tasks"
 		}
 	]
 }
