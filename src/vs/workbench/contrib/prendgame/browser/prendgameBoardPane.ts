@@ -7,7 +7,7 @@ import { $, append, getWindow } from '../../../../base/browser/dom.js';
 import { T } from './prendgameTheme.js';
 import { getGroups, getMembers, getDocs, findTask, findTaskGroup, getDueDateStyle, getLinkedDocs, getLinkedTasks, addLink, getReadyForDevDocs, createTasksFromDoc, PRIORITY_COLORS, PRIORITY_LABELS, TASK_STATUS_COLORS as STATUS_COLORS, TASK_STATUS_LABELS, DOC_TYPE_COLORS, DOC_TYPE_LABELS, DOC_STATUS_COLORS, DOC_STATUS_LABELS, ITask, ISubtask, IDoc } from './prendgameData.js';
 import { renderMarkdownToDOM } from './prendgameDocsPane.js';
-import { groupItemsBy, IViewGroup } from './prendgameViewUtils.js';
+import { groupItemsBy, renderCollapsibleGroup, IViewGroup } from './prendgameViewUtils.js';
 
 // -- Render -------------------------------------------------------------------
 
@@ -993,64 +993,22 @@ export function renderBoardContent(root: HTMLElement, commandService: { executeC
 	}
 
 	function renderGroupSection(container: HTMLElement, vg: IViewGroup<ITask>, collapsed: boolean) {
-		const hdr = append(container, $('div'));
-		hdr.style.cssText = `display:flex;align-items:center;gap:8px;padding:8px 20px;cursor:pointer;user-select:none;transition:background 0.1s;`;
-		hdr.addEventListener('mouseenter', () => { hdr.style.background = T.surfaceHover; });
-		hdr.addEventListener('mouseleave', () => { hdr.style.background = ''; });
-
-		const twistie = append(hdr, $('span'));
-		twistie.style.cssText = `width:16px;font-size:10px;text-align:center;color:${T.textFaint};transition:transform 0.15s ease;`;
-		twistie.textContent = '\u25B6';
-		if (!collapsed) { twistie.style.transform = 'rotate(90deg)'; }
-		twisties.push({ el: twistie, groupId: vg.key });
-
-		const colorSquare = append(hdr, $('span'));
-		const sc = vg.color || '#52525b';
-		colorSquare.style.cssText = `width:8px;height:8px;border-radius:2px;background:${sc};flex-shrink:0;`;
-
-		const label = append(hdr, $('span'));
-		label.style.cssText = `font-size:12px;font-weight:600;color:${T.textMuted};text-transform:uppercase;letter-spacing:0.06em;`;
-		label.textContent = vg.name;
-
-		const badge = append(hdr, $('span'));
-		badge.style.cssText = `font-size:10px;background:${T.border};color:${T.textMuted};padding:1px 7px;border-radius:${T.radiusPill};margin-left:auto;min-width:20px;text-align:center;font-weight:500;`;
-		badge.textContent = String(vg.items.length);
-		badges.push({ el: badge, groupId: vg.key });
-
-		if (activeGroupBy === 'status') {
-			const dz = append(container, $('div'));
-			dz.style.cssText = `height:0;transition:height 0.2s ease,opacity 0.2s;overflow:hidden;opacity:0;`;
-			dropZones.push({ el: dz, groupId: vg.key });
-			dz.addEventListener('dragover', (e) => {
-				e.preventDefault();
-				if (e.dataTransfer) { e.dataTransfer.dropEffect = 'move'; }
-				dz.style.background = `${T.accent}30`;
-			});
-			dz.addEventListener('dragleave', () => { dz.style.background = T.accentMuted; });
-			dz.addEventListener('drop', (e) => {
-				e.preventDefault();
-				if (dragTaskId) { moveTask(dragTaskId, vg.key); }
-				clearDropHighlights();
-			});
-		}
-
-		const cards = append(container, $('div'));
-		cards.style.cssText = 'padding:2px 0;';
-		if (collapsed) { cards.style.display = 'none'; }
-		cardsContainers.push({ el: cards, groupId: vg.key });
-
-		const sep = append(container, $('div'));
-		sep.style.cssText = `height:1px;background:${T.borderSubtle};margin:0 20px;`;
-
-		hdr.addEventListener('click', () => {
-			const wasHidden = cards.style.display === 'none';
-			cards.style.display = wasHidden ? '' : 'none';
-			twistie.style.transform = wasHidden ? 'rotate(90deg)' : 'rotate(0deg)';
+		const useDropZone = activeGroupBy === 'status';
+		const result = renderCollapsibleGroup({
+			container,
+			group: vg,
+			collapsed,
+			theme: T,
+			renderItem: (parent, task) => { renderTaskRow(parent, task, vg.key); },
+			dropConfig: useDropZone ? {
+				showDropZone: true,
+				onDrop: (groupKey) => { if (dragTaskId) { moveTask(dragTaskId, groupKey); } clearDropHighlights(); },
+			} : undefined,
 		});
-
-		for (const task of vg.items) {
-			renderTaskRow(cards, task, vg.key);
-		}
+		twisties.push({ el: result.twistie, groupId: vg.key });
+		badges.push({ el: result.badge, groupId: vg.key });
+		cardsContainers.push({ el: result.cards, groupId: vg.key });
+		if (result.dropZone) { dropZones.push({ el: result.dropZone, groupId: vg.key }); }
 	}
 
 	// Initial board render

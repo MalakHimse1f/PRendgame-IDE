@@ -6,7 +6,7 @@
 import { $, append, getWindow } from '../../../../base/browser/dom.js';
 import { T } from './prendgameTheme.js';
 import { getDocs, getLinkedTasks, addLink, isDocLocked, findTask, findTaskGroup, getGroups, PRIORITY_COLORS, PRIORITY_LABELS, TASK_STATUS_COLORS, TASK_STATUS_LABELS, DOC_TYPE_COLORS as TYPE_COLORS, DOC_TYPE_LABELS as TYPE_LABELS, DOC_STATUSES as STATUSES, DOC_STATUS_LABELS as STATUS_LABELS, DOC_STATUS_COLORS as STATUS_COLORS, IDoc } from './prendgameData.js';
-import { groupItemsBy } from './prendgameViewUtils.js';
+import { groupItemsBy, renderCollapsibleGroup } from './prendgameViewUtils.js';
 
 export function renderMarkdownToDOM(parent: HTMLElement, text: string): void {
 	const lines = text.split('\n');
@@ -258,59 +258,32 @@ export function renderDocsContent(root: HTMLElement, commandService: { executeCo
 		boardWrap.style.cssText = 'padding:8px 0;';
 
 		for (const vg of viewGroups) {
-			const hdr = append(boardWrap, $('div'));
-			hdr.style.cssText = `display:flex;align-items:center;gap:8px;padding:8px 20px;cursor:pointer;user-select:none;transition:background 0.1s;`;
-			hdr.addEventListener('mouseenter', () => { hdr.style.background = T.surfaceHover; });
-			hdr.addEventListener('mouseleave', () => { hdr.style.background = ''; });
+			renderCollapsibleGroup<IDoc>({
+				container: boardWrap,
+				group: vg,
+				collapsed: false,
+				theme: T,
+				renderItem: (parent, d) => {
+					const row = append(parent, $('div'));
+					row.style.cssText = `display:flex;align-items:center;gap:8px;padding:6px 20px 6px 42px;cursor:pointer;transition:background 0.1s;border-radius:${T.radiusSm};margin:0 4px;`;
+					row.addEventListener('mouseenter', () => { row.style.background = T.surfaceHover; });
+					row.addEventListener('mouseleave', () => { row.style.background = ''; });
+					row.addEventListener('click', () => { showDetail(d.id); });
 
-			const twistie = append(hdr, $('span'));
-			twistie.style.cssText = `width:16px;font-size:10px;text-align:center;color:${T.textFaint};transition:transform 0.15s ease;transform:rotate(90deg);`;
-			twistie.textContent = '\u25B6';
+					const tc = TYPE_COLORS[d.type] || '#666';
+					const badge = append(row, $('span'));
+					badge.style.cssText = `font-size:9px;font-weight:600;padding:2px 6px;border-radius:3px;background:${tc}20;color:${tc};text-transform:uppercase;`;
+					badge.textContent = TYPE_LABELS[d.type] || d.type;
 
-			const sq = append(hdr, $('span'));
-			const sc = vg.color || '#52525b';
-			sq.style.cssText = `width:8px;height:8px;border-radius:2px;background:${sc};flex-shrink:0;`;
+					const title = append(row, $('span'));
+					title.style.cssText = `font-size:13px;color:${T.text};flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;`;
+					title.textContent = d.title;
 
-			const lbl = append(hdr, $('span'));
-			lbl.style.cssText = `font-size:12px;font-weight:600;color:${T.textMuted};text-transform:uppercase;letter-spacing:0.06em;`;
-			lbl.textContent = vg.name;
-
-			const bdg = append(hdr, $('span'));
-			bdg.style.cssText = `font-size:10px;background:${T.border};color:${T.textMuted};padding:1px 7px;border-radius:${T.radiusPill};margin-left:auto;`;
-			bdg.textContent = String(vg.items.length);
-
-			const cards = append(boardWrap, $('div'));
-			cards.style.cssText = 'padding:2px 0;';
-
-			hdr.addEventListener('click', () => {
-				const hidden = cards.style.display === 'none';
-				cards.style.display = hidden ? '' : 'none';
-				twistie.style.transform = hidden ? 'rotate(90deg)' : 'rotate(0deg)';
+					const av = append(row, $('span'));
+					av.style.cssText = `display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;font-size:7px;font-weight:600;color:#fff;background:${d.ownerColor};flex-shrink:0;`;
+					av.textContent = d.ownerInitials;
+				},
 			});
-
-			for (const doc of vg.items) {
-				const row = append(cards, $('div'));
-				row.style.cssText = `display:flex;align-items:center;gap:8px;padding:6px 20px 6px 42px;cursor:pointer;transition:background 0.1s;border-radius:${T.radiusSm};margin:0 4px;`;
-				row.addEventListener('mouseenter', () => { row.style.background = T.surfaceHover; });
-				row.addEventListener('mouseleave', () => { row.style.background = ''; });
-				row.addEventListener('click', () => { showDetail(doc.id); });
-
-				const tc = TYPE_COLORS[doc.type] || '#666';
-				const badge = append(row, $('span'));
-				badge.style.cssText = `font-size:9px;font-weight:600;padding:2px 6px;border-radius:3px;background:${tc}20;color:${tc};text-transform:uppercase;`;
-				badge.textContent = TYPE_LABELS[doc.type] || doc.type;
-
-				const title = append(row, $('span'));
-				title.style.cssText = `font-size:13px;color:${T.text};flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;`;
-				title.textContent = doc.title;
-
-				const av = append(row, $('span'));
-				av.style.cssText = `display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;font-size:7px;font-weight:600;color:#fff;background:${doc.ownerColor};flex-shrink:0;`;
-				av.textContent = doc.ownerInitials;
-			}
-
-			const sep = append(boardWrap, $('div'));
-			sep.style.cssText = `height:1px;background:${T.borderSubtle};margin:0 20px;`;
 		}
 	}
 
