@@ -83,6 +83,46 @@
 			}
 		}
 	],
+	"defaultChatAgent": {
+		"extensionId": "",
+		"chatExtensionId": "",
+		"chatExtensionOutputId": "",
+		"chatExtensionOutputExtensionStateCommand": "",
+		"documentationUrl": "",
+		"termsStatementUrl": "",
+		"privacyStatementUrl": "",
+		"skusDocumentationUrl": "",
+		"publicCodeMatchesUrl": "",
+		"manageSettingsUrl": "",
+		"managePlanUrl": "",
+		"manageOverageUrl": "",
+		"upgradePlanUrl": "",
+		"signUpUrl": "",
+		"provider": {
+			"default": {
+				"id": "",
+				"name": ""
+			}
+		},
+		"providerExtensionId": "",
+		"providerUriSetting": "",
+		"providerScopes": [],
+		"entitlementUrl": "",
+		"entitlementSignupLimitedUrl": "",
+		"chatQuotaExceededContext": "",
+		"completionsQuotaExceededContext": "",
+		"walkthroughCommand": "",
+		"completionsMenuCommand": "",
+		"completionsRefreshTokenCommand": "",
+		"chatRefreshTokenCommand": "",
+		"generateCommitMessageCommand": "",
+		"resolveMergeConflictsCommand": "",
+		"completionsAdvancedSetting": "",
+		"completionsEnablementSetting": "",
+		"nextEditSuggestionsSetting": "",
+		"tokenEntitlementUrl": "",
+		"mcpRegistryDataUrl": ""
+	},
 	"trustedExtensionAuthAccess": {},
 	"builtInExtensionsEnabledWithAutoUpdates": []
 }
