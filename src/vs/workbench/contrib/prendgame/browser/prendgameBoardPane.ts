@@ -117,6 +117,190 @@ export class PRendgameBoardPane extends ViewPane {
 export function renderBoardContent(root: HTMLElement, commandService: { executeCommand(id: string, ...args: unknown[]): unknown }): void {
 
 	const groups = getGroups();
+	const members = [
+		{ id: 'user-001', name: 'Alex Chen', initials: 'AC', color: '#6366f1', role: 'PM' },
+		{ id: 'user-002', name: 'Taylor Reeves', initials: 'TR', color: '#8b5cf6', role: 'EM' },
+		{ id: 'user-003', name: 'Jordan Park', initials: 'JP', color: '#06b6d4', role: 'Senior Eng' },
+		{ id: 'user-004', name: 'Morgan Liu', initials: 'ML', color: '#10b981', role: 'Senior Eng' },
+		{ id: 'user-005', name: 'Sam Rivera', initials: 'SR', color: '#f59e0b', role: 'Junior Eng' },
+		{ id: 'user-006', name: 'Riley Brooks', initials: 'RB', color: '#ef4444', role: 'Junior Eng' },
+		{ id: 'user-007', name: 'Avery Quinn', initials: 'AQ', color: '#ec4899', role: 'QA' },
+	];
+
+	// Drill-in containers
+	const boardContainer = append(root, $('div'));
+	const detailContainer = append(root, $('div'));
+	detailContainer.style.display = 'none';
+	let activeTaskId: string | null = null;
+
+	function findTask(taskId: string): ITask | undefined {
+		for (const g of groups) {
+			const t = g.tasks.find(tt => tt.id === taskId);
+			if (t) { return t; }
+		}
+		return undefined;
+	}
+
+	function findTaskGroup(taskId: string): string {
+		for (const g of groups) {
+			if (g.tasks.some(tt => tt.id === taskId)) { return g.id; }
+		}
+		return '';
+	}
+
+	function showBoard() {
+		activeTaskId = null;
+		boardContainer.style.display = '';
+		detailContainer.style.display = 'none';
+	}
+
+	function showDetail(taskId: string) {
+		activeTaskId = taskId;
+		boardContainer.style.display = 'none';
+		detailContainer.style.display = '';
+		renderTaskDetail();
+	}
+
+	function renderTaskDetail() {
+		detailContainer.textContent = '';
+		const task = findTask(activeTaskId || '');
+		if (!task) { showBoard(); return; }
+		const groupId = findTaskGroup(task.id);
+		const statusLabel = { backlog: 'Backlog', todo: 'To Do', in_progress: 'In Progress', in_review: 'In Review', done: 'Done' }[groupId] || groupId;
+
+		// Back
+		const backRow = append(detailContainer, $('div'));
+		backRow.style.cssText = `display:flex;align-items:center;gap:6px;padding:8px 20px;cursor:pointer;border-bottom:1px solid ${T.border};transition:background 0.1s;`;
+		backRow.addEventListener('mouseenter', () => { backRow.style.background = T.surfaceHover; });
+		backRow.addEventListener('mouseleave', () => { backRow.style.background = ''; });
+		backRow.addEventListener('click', () => { showBoard(); });
+		const backArrow = append(backRow, $('span'));
+		backArrow.style.cssText = `font-size:14px;color:${T.textMuted};`;
+		backArrow.textContent = '\u2190';
+		const backLabel = append(backRow, $('span'));
+		backLabel.style.cssText = `font-size:12px;color:${T.textMuted};`;
+		backLabel.textContent = 'Board';
+
+		// Header
+		const header = append(detailContainer, $('div'));
+		header.style.cssText = `padding:14px 20px;border-bottom:1px solid ${T.border};`;
+
+		// Task ID
+		const idEl = append(header, $('span'));
+		idEl.style.cssText = `font-size:11px;color:${T.textFaint};font-family:var(--monaco-monospace-font);`;
+		idEl.textContent = task.id;
+
+		// Editable title
+		const titleEl = append(header, $('div'));
+		titleEl.style.cssText = `font-size:16px;font-weight:600;color:${T.text};margin-top:6px;cursor:text;padding:2px 4px;border-radius:${T.radiusSm};transition:background 0.1s;letter-spacing:-0.01em;`;
+		titleEl.textContent = task.title;
+		titleEl.addEventListener('mouseenter', () => { titleEl.style.background = T.surfaceHover; });
+		titleEl.addEventListener('mouseleave', () => { titleEl.style.background = ''; });
+		titleEl.addEventListener('click', () => {
+			const input = document.createElement('input');
+			input.type = 'text';
+			input.value = task.title;
+			input.style.cssText = `width:100%;box-sizing:border-box;background:${T.surface};border:1px solid ${T.accent};color:${T.text};padding:4px 8px;border-radius:${T.radiusSm};font-size:16px;font-weight:600;font-family:inherit;outline:none;`;
+			titleEl.textContent = '';
+			titleEl.appendChild(input);
+			input.focus();
+			input.select();
+			const finish = () => { const v = input.value.trim(); if (v) { task.title = v; } titleEl.textContent = task.title; };
+			input.addEventListener('blur', finish);
+			input.addEventListener('keydown', (ke) => { if (ke.key === 'Enter') { input.blur(); } if (ke.key === 'Escape') { input.value = task.title; input.blur(); } });
+		});
+
+		// Metadata grid
+		const metaGrid = append(detailContainer, $('div'));
+		metaGrid.style.cssText = `padding:12px 20px;border-bottom:1px solid ${T.border};display:grid;grid-template-columns:80px 1fr;gap:6px 12px;align-items:center;`;
+
+		// Status
+		const statusLbl = append(metaGrid, $('span'));
+		statusLbl.style.cssText = `font-size:11px;color:${T.textFaint};`;
+		statusLbl.textContent = 'Status';
+		const statusPill = append(metaGrid, $('span'));
+		const sc = STATUS_COLORS[groupId] || '#666';
+		statusPill.style.cssText = `display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:3px 10px;border-radius:${T.radiusPill};background:${sc}20;color:${sc};cursor:pointer;font-weight:500;width:fit-content;`;
+		statusPill.textContent = statusLabel;
+		statusPill.title = 'Click to change status';
+
+		// Priority
+		const prioLbl = append(metaGrid, $('span'));
+		prioLbl.style.cssText = `font-size:11px;color:${T.textFaint};`;
+		prioLbl.textContent = 'Priority';
+		const prioPill = append(metaGrid, $('span'));
+		const pc = PRIORITY_COLORS[task.priority] || '#52525b';
+		const prioLabels: Record<string, string> = { critical: 'Critical', high: 'High', medium: 'Medium', low: 'Low' };
+		prioPill.style.cssText = `display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:3px 10px;border-radius:${T.radiusPill};background:${pc}20;color:${pc};cursor:pointer;font-weight:500;width:fit-content;`;
+		prioPill.textContent = prioLabels[task.priority] || task.priority;
+		prioPill.title = 'Click to change priority';
+		const priorities = ['low', 'medium', 'high', 'critical'];
+		prioPill.addEventListener('click', () => {
+			const idx = priorities.indexOf(task.priority);
+			task.priority = priorities[(idx + 1) % priorities.length];
+			const newPc = PRIORITY_COLORS[task.priority] || '#52525b';
+			prioPill.style.background = `${newPc}20`;
+			prioPill.style.color = newPc;
+			prioPill.textContent = prioLabels[task.priority] || task.priority;
+		});
+
+		// Assignee
+		const assigneeLbl = append(metaGrid, $('span'));
+		assigneeLbl.style.cssText = `font-size:11px;color:${T.textFaint};`;
+		assigneeLbl.textContent = 'Assignee';
+		const assigneeEl = append(metaGrid, $('span'));
+		assigneeEl.style.cssText = `display:inline-flex;align-items:center;gap:6px;font-size:12px;color:${T.text};cursor:pointer;`;
+		const av = append(assigneeEl, $('span'));
+		av.style.cssText = `display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;font-size:8px;font-weight:600;color:#fff;background:${task.color};`;
+		av.textContent = task.initials;
+		const assigneeName = append(assigneeEl, $('span'));
+		const memberMatch = members.find(m => m.initials === task.initials);
+		assigneeName.textContent = memberMatch ? memberMatch.name : task.initials;
+
+		// Labels
+		const labelsLbl = append(metaGrid, $('span'));
+		labelsLbl.style.cssText = `font-size:11px;color:${T.textFaint};`;
+		labelsLbl.textContent = 'Labels';
+		const labelsEl = append(metaGrid, $('div'));
+		labelsEl.style.cssText = 'display:flex;gap:4px;flex-wrap:wrap;';
+		for (const l of task.labels) {
+			const lbl = append(labelsEl, $('span'));
+			lbl.style.cssText = `font-size:10px;padding:2px 8px;border-radius:${T.radiusPill};background:${T.border};color:${T.textMuted};`;
+			lbl.textContent = l;
+		}
+
+		// Description
+		const descSection = append(detailContainer, $('div'));
+		descSection.style.cssText = `padding:14px 20px;border-bottom:1px solid ${T.border};`;
+		const descTitle = append(descSection, $('div'));
+		descTitle.style.cssText = `font-size:11px;font-weight:600;color:${T.textFaint};text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;`;
+		descTitle.textContent = 'Description';
+		const descContent = append(descSection, $('div'));
+		descContent.style.cssText = `font-size:13px;line-height:1.7;color:${T.text};cursor:text;padding:4px;border-radius:${T.radiusSm};transition:background 0.1s;min-height:40px;`;
+		descContent.textContent = task.title; // Mock: just repeat the title as description placeholder
+		descContent.addEventListener('mouseenter', () => { descContent.style.background = T.surfaceHover; });
+		descContent.addEventListener('mouseleave', () => { descContent.style.background = ''; });
+		descContent.addEventListener('click', () => {
+			const textarea = document.createElement('textarea');
+			textarea.value = descContent.textContent || '';
+			textarea.style.cssText = `width:100%;box-sizing:border-box;min-height:100px;background:${T.surface};border:1px solid ${T.accent};color:${T.text};padding:8px;border-radius:${T.radius};font-size:13px;font-family:inherit;line-height:1.6;outline:none;resize:vertical;`;
+			descContent.textContent = '';
+			descContent.appendChild(textarea);
+			textarea.focus();
+			textarea.addEventListener('blur', () => { descContent.textContent = textarea.value || task.title; });
+			textarea.addEventListener('keydown', (ke) => { if (ke.key === 'Escape') { descContent.textContent = task.title; } });
+		});
+
+		// Open in Editor button
+		const btnWrap = append(detailContainer, $('div'));
+		btnWrap.style.cssText = `padding:12px 20px;`;
+		const openBtn = append(btnWrap, $('div'));
+		openBtn.style.cssText = `display:flex;align-items:center;justify-content:center;padding:7px;border-radius:${T.radius};border:1px solid ${T.border};cursor:pointer;font-size:11px;font-weight:500;color:${T.textMuted};transition:all 0.15s;`;
+		openBtn.textContent = 'Open in Editor';
+		openBtn.addEventListener('mouseenter', () => { openBtn.style.color = T.text; openBtn.style.borderColor = T.accent; openBtn.style.background = T.surfaceHover; });
+		openBtn.addEventListener('mouseleave', () => { openBtn.style.color = T.textMuted; openBtn.style.borderColor = T.border; openBtn.style.background = ''; });
+		openBtn.addEventListener('click', () => { commandService.executeCommand('prendgame.openTaskDetail', task.id); });
+	}
 
 	// Drag state
 	let dragTaskId: string | null = null;
@@ -190,7 +374,7 @@ export function renderBoardContent(root: HTMLElement, commandService: { executeC
 
 		let didDrag = false;
 		row.addEventListener('click', () => {
-			if (!didDrag) { commandService.executeCommand('prendgame.openTaskDetail', task.id); }
+			if (!didDrag) { showDetail(task.id); }
 			didDrag = false;
 		});
 
@@ -238,7 +422,7 @@ export function renderBoardContent(root: HTMLElement, commandService: { executeC
 	}
 
 	// == Sprint bar ===========================================================
-	const sprint = append(root, $('div'));
+	const sprint = append(boardContainer, $('div'));
 	sprint.style.cssText = `display:flex;align-items:center;gap:10px;padding:14px 20px;border-bottom:1px solid ${T.border};`;
 
 	const sprintIndicator = append(sprint, $('span'));
@@ -256,7 +440,7 @@ export function renderBoardContent(root: HTMLElement, commandService: { executeC
 	sprintDates.textContent = 'April 7 \u2013 18, 2026';
 
 	// == Search ===============================================================
-	const searchWrap = append(root, $('div'));
+	const searchWrap = append(boardContainer, $('div'));
 	searchWrap.style.cssText = `padding:10px 20px;border-bottom:1px solid ${T.border};`;
 
 	const searchInput = append(searchWrap, $('input'));
@@ -285,7 +469,7 @@ export function renderBoardContent(root: HTMLElement, commandService: { executeC
 	});
 
 	// == Summary pills ========================================================
-	const pills = append(root, $('div'));
+	const pills = append(boardContainer, $('div'));
 	pills.style.cssText = `display:flex;gap:8px;padding:10px 20px;border-bottom:1px solid ${T.border};flex-wrap:wrap;align-items:center;`;
 
 	const totalTasks = groups.reduce((sum, g) => sum + g.tasks.length, 0);
@@ -307,7 +491,7 @@ export function renderBoardContent(root: HTMLElement, commandService: { executeC
 
 	// == Groups ===============================================================
 	for (const group of groups) {
-		const hdr = append(root, $('div'));
+		const hdr = append(boardContainer, $('div'));
 		hdr.style.cssText = `display:flex;align-items:center;gap:8px;padding:8px 20px;cursor:pointer;user-select:none;transition:background 0.1s;`;
 		hdr.addEventListener('mouseenter', () => { hdr.style.background = T.surfaceHover; });
 		hdr.addEventListener('mouseleave', () => { hdr.style.background = ''; });
@@ -336,7 +520,7 @@ export function renderBoardContent(root: HTMLElement, commandService: { executeC
 		badges.push({ el: badge, groupId: group.id });
 
 		// Drop zone
-		const dz = append(root, $('div'));
+		const dz = append(boardContainer, $('div'));
 		dz.style.cssText = `height:0;transition:height 0.2s ease,opacity 0.2s;overflow:hidden;opacity:0;`;
 		dropZones.push({ el: dz, groupId: group.id });
 
@@ -353,13 +537,13 @@ export function renderBoardContent(root: HTMLElement, commandService: { executeC
 		});
 
 		// Cards container
-		const cards = append(root, $('div'));
+		const cards = append(boardContainer, $('div'));
 		cards.style.cssText = 'padding:2px 0;';
 		if (group.collapsed) { cards.style.display = 'none'; }
 		cardsContainers.push({ el: cards, groupId: group.id });
 
 		// Separator
-		const sep = append(root, $('div'));
+		const sep = append(boardContainer, $('div'));
 		sep.style.cssText = `height:1px;background:${T.borderSubtle};margin:0 20px;`;
 
 		// Toggle
@@ -375,7 +559,7 @@ export function renderBoardContent(root: HTMLElement, commandService: { executeC
 	}
 
 	// == Sprint progress ======================================================
-	const progressSection = append(root, $('div'));
+	const progressSection = append(boardContainer, $('div'));
 	progressSection.style.cssText = `padding:16px 20px;border-top:1px solid ${T.border};`;
 
 	const progressLabel = append(progressSection, $('div'));
@@ -396,7 +580,7 @@ export function renderBoardContent(root: HTMLElement, commandService: { executeC
 	barText.textContent = `${doneTasks} of ${totalTasks} complete (${pct}%)`;
 
 	// == Action buttons =======================================================
-	const actions = append(root, $('div'));
+	const actions = append(boardContainer, $('div'));
 	actions.style.cssText = `display:flex;gap:8px;padding:8px 20px 20px;`;
 
 	const makeBtn = (btnLabel: string, command: string, isPrimary?: boolean) => {
