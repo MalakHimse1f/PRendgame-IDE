@@ -44,17 +44,17 @@ const STATUS_COLORS: Record<string, string> = {
 
 // -- Data ---------------------------------------------------------------------
 
-interface ITask { id: string; title: string; priority: string; initials: string; color: string; labels: string[] }
+interface ITask { id: string; title: string; priority: string; initials: string; color: string; labels: string[]; description: string }
 interface IGroup { id: string; name: string; tasks: ITask[]; collapsed: boolean }
 
 function getGroups(): IGroup[] {
-	const t = (id: string, title: string, priority: string, initials: string, color: string, labels: string[]): ITask => ({ id, title, priority, initials, color, labels });
+	const t = (id: string, title: string, priority: string, initials: string, color: string, labels: string[], description?: string): ITask => ({ id, title, priority, initials, color, labels, description: description || '' });
 	return [
 		{
 			id: 'in_progress', name: 'In Progress', collapsed: false, tasks: [
-				t('PRE-3', 'Build kanban board webview', 'critical', 'ML', '#10b981', ['frontend', 'core']),
-				t('PRE-4', 'Implement task detail view', 'high', 'SR', '#f59e0b', ['frontend']),
-				t('PRE-5', 'Create sidebar tree views', 'high', 'RB', '#ef4444', ['frontend']),
+				t('PRE-3', 'Build kanban board webview', 'critical', 'ML', '#10b981', ['frontend', 'core'], 'Implement the main kanban board as a VS Code webview panel.\n\n- 5 default columns (configurable)\n- Drag-and-drop between columns\n- Task card rendering with title, assignee avatar, priority badge\n- Filter bar (assignee, priority, label)'),
+				t('PRE-4', 'Implement task detail view', 'high', 'SR', '#f59e0b', ['frontend'], 'When a user clicks a task card, show a detail view with all fields inline-editable.\n\n- Title, status, priority, assignee\n- Description with markdown rendering\n- Comments thread\n- Linked documents and code snippets'),
+				t('PRE-5', 'Create sidebar tree views', 'high', 'RB', '#ef4444', ['frontend'], 'Register tree view providers in the PRendgame activity bar.\n\n- My Tasks grouped by status\n- Documents grouped by type\n- Sprints with task counts'),
 			]
 		},
 		{
@@ -284,18 +284,64 @@ export function renderBoardContent(root: HTMLElement, commandService: { executeC
 			setTimeout(() => w.document.addEventListener('click', closeFn), 0);
 		});
 
-		// Assignee
+		// Assignee (dropdown)
 		const assigneeLbl = append(metaGrid, $('span'));
 		assigneeLbl.style.cssText = `font-size:11px;color:${T.textFaint};`;
 		assigneeLbl.textContent = 'Assignee';
-		const assigneeEl = append(metaGrid, $('span'));
-		assigneeEl.style.cssText = `display:inline-flex;align-items:center;gap:6px;font-size:12px;color:${T.text};cursor:pointer;`;
-		const av = append(assigneeEl, $('span'));
-		av.style.cssText = `display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;font-size:8px;font-weight:600;color:#fff;background:${task.color};`;
-		av.textContent = task.initials;
-		const assigneeName = append(assigneeEl, $('span'));
+		const assigneeWrap = append(metaGrid, $('div'));
+		assigneeWrap.style.cssText = 'position:relative;';
+		const assigneeBtn = append(assigneeWrap, $('span'));
+		assigneeBtn.style.cssText = `display:inline-flex;align-items:center;gap:6px;font-size:12px;color:${T.text};cursor:pointer;padding:2px 4px;border-radius:${T.radiusSm};transition:background 0.1s;`;
 		const memberMatch = members.find(m => m.initials === task.initials);
-		assigneeName.textContent = memberMatch ? memberMatch.name : task.initials;
+
+		function renderAssignee() {
+			assigneeBtn.textContent = '';
+			const av = append(assigneeBtn, $('span'));
+			av.style.cssText = `display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;font-size:8px;font-weight:600;color:#fff;background:${task.color};`;
+			av.textContent = task.initials;
+			const nm = append(assigneeBtn, $('span'));
+			const m = members.find(mm => mm.initials === task.initials);
+			nm.textContent = (m ? m.name : task.initials) + ' \u25BE';
+		}
+		renderAssignee();
+
+		assigneeBtn.addEventListener('mouseenter', () => { assigneeBtn.style.background = T.surfaceHover; });
+		assigneeBtn.addEventListener('mouseleave', () => { assigneeBtn.style.background = ''; });
+
+		let assigneeDropdown: HTMLElement | null = null;
+		assigneeBtn.addEventListener('click', () => {
+			if (assigneeDropdown) { assigneeDropdown.remove(); assigneeDropdown = null; return; }
+			const dd = append(assigneeWrap, $('div'));
+			assigneeDropdown = dd;
+			dd.style.cssText = `position:absolute;top:100%;left:0;margin-top:4px;background:${T.surface};border:1px solid ${T.border};border-radius:${T.radius};padding:4px 0;z-index:1000;min-width:180px;box-shadow:0 4px 12px rgba(0,0,0,0.3);`;
+			for (const m of members) {
+				const opt = append(dd, $('div'));
+				const isActive = task.initials === m.initials;
+				opt.style.cssText = `display:flex;align-items:center;gap:8px;padding:5px 12px;cursor:pointer;font-size:11px;color:${isActive ? T.text : T.textMuted};transition:background 0.1s;`;
+				opt.addEventListener('mouseenter', () => { opt.style.background = T.surfaceHover; });
+				opt.addEventListener('mouseleave', () => { opt.style.background = ''; });
+				const oav = append(opt, $('span'));
+				oav.style.cssText = `display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;font-size:7px;font-weight:600;color:#fff;background:${m.color};`;
+				oav.textContent = m.initials;
+				const ol = append(opt, $('span'));
+				ol.textContent = m.name;
+				if (isActive) { ol.style.fontWeight = '600'; }
+				const or = append(opt, $('span'));
+				or.style.cssText = `margin-left:auto;font-size:10px;color:${T.textFaint};`;
+				or.textContent = m.role;
+				opt.addEventListener('click', (e) => {
+					e.stopPropagation();
+					task.initials = m.initials;
+					task.color = m.color;
+					renderAssignee();
+					dd.remove();
+					assigneeDropdown = null;
+				});
+			}
+			const w = getWindow(assigneeWrap);
+			const closeFn = (e: Event) => { if (!assigneeWrap.contains(e.target as Node)) { dd.remove(); assigneeDropdown = null; w.document.removeEventListener('click', closeFn); } };
+			setTimeout(() => w.document.addEventListener('click', closeFn), 0);
+		});
 
 		// Labels
 		const labelsLbl = append(metaGrid, $('span'));
@@ -317,18 +363,38 @@ export function renderBoardContent(root: HTMLElement, commandService: { executeC
 		descTitle.textContent = 'Description';
 		const descContent = append(descSection, $('div'));
 		descContent.style.cssText = `font-size:13px;line-height:1.7;color:${T.text};cursor:text;padding:4px;border-radius:${T.radiusSm};transition:background 0.1s;min-height:40px;`;
-		descContent.textContent = task.title; // Mock: just repeat the title as description placeholder
+		const descText = task.description || 'Click to add a description...';
+
+		function renderDesc() {
+			descContent.textContent = '';
+			const lines = (task.description || descText).split('\n');
+			for (const line of lines) {
+				if (line.startsWith('- ')) {
+					const el = append(descContent, $('div'));
+					el.style.cssText = `margin:2px 0;padding-left:12px;`;
+					el.textContent = '\u2022 ' + line.slice(2);
+				} else if (line.trim() === '') {
+					append(descContent, $('br'));
+				} else {
+					const el = append(descContent, $('div'));
+					el.style.cssText = 'margin:2px 0;';
+					el.textContent = line;
+				}
+			}
+		}
+		renderDesc();
+
 		descContent.addEventListener('mouseenter', () => { descContent.style.background = T.surfaceHover; });
 		descContent.addEventListener('mouseleave', () => { descContent.style.background = ''; });
 		descContent.addEventListener('click', () => {
 			const textarea = document.createElement('textarea');
-			textarea.value = descContent.textContent || '';
-			textarea.style.cssText = `width:100%;box-sizing:border-box;min-height:100px;background:${T.surface};border:1px solid ${T.accent};color:${T.text};padding:8px;border-radius:${T.radius};font-size:13px;font-family:inherit;line-height:1.6;outline:none;resize:vertical;`;
+			textarea.value = task.description || '';
+			textarea.style.cssText = `width:100%;box-sizing:border-box;min-height:120px;background:${T.surface};border:1px solid ${T.accent};color:${T.text};padding:8px;border-radius:${T.radius};font-size:13px;font-family:inherit;line-height:1.6;outline:none;resize:vertical;`;
 			descContent.textContent = '';
 			descContent.appendChild(textarea);
 			textarea.focus();
-			textarea.addEventListener('blur', () => { descContent.textContent = textarea.value || task.title; });
-			textarea.addEventListener('keydown', (ke) => { if (ke.key === 'Escape') { descContent.textContent = task.title; } });
+			textarea.addEventListener('blur', () => { task.description = textarea.value; renderDesc(); });
+			textarea.addEventListener('keydown', (ke) => { if (ke.key === 'Escape') { renderDesc(); } });
 		});
 
 		// Open in Editor button
