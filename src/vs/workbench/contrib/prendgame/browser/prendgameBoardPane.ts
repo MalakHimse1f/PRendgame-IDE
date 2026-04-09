@@ -260,7 +260,7 @@ export class PRendgameBoardPane extends ViewPane {
 		const searchInput = append(searchWrap, $('input'));
 		searchInput.type = 'text';
 		searchInput.placeholder = 'Filter tasks\u2026';
-		searchInput.style.cssText = `width:100%;background:${T.surface};border:1px solid ${T.border};color:${T.text};padding:7px 12px;border-radius:${T.radius};font-size:12px;font-family:inherit;outline:none;transition:border-color 0.15s;`;
+		searchInput.style.cssText = `width:100%;box-sizing:border-box;background:${T.surface};border:1px solid ${T.border};color:${T.text};padding:7px 12px;border-radius:${T.radius};font-size:12px;font-family:inherit;outline:none;transition:border-color 0.15s;`;
 		searchInput.addEventListener('focus', () => { searchInput.style.borderColor = T.accent; });
 		searchInput.addEventListener('blur', () => { searchInput.style.borderColor = T.border; });
 
