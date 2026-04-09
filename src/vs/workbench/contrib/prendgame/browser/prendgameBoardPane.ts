@@ -206,25 +206,52 @@ export class PRendgameBoardPane extends ViewPane {
 			}
 		}
 
-		// -- Expand button ----------------------------------------------------
-		const expandWrap = append(root, $('div'));
-		expandWrap.style.cssText = 'padding:12px 16px;';
+		// -- Sprint progress section ------------------------------------------
+		const sprintSection = append(root, $('div'));
+		sprintSection.style.cssText = 'padding:12px 16px;border-top:1px solid var(--vscode-sideBar-border,var(--vscode-panel-border));';
 
-		const btn = append(expandWrap, $('div'));
-		btn.style.cssText = 'display:flex;align-items:center;justify-content:center;gap:6px;padding:6px;border-radius:4px;border:1px solid var(--vscode-sideBar-border,var(--vscode-panel-border));cursor:pointer;font-size:11px;color:var(--vscode-descriptionForeground);transition:all 0.12s;';
-		btn.textContent = 'Open Board View';
-		btn.addEventListener('mouseenter', () => {
-			btn.style.color = 'var(--vscode-foreground)';
-			btn.style.borderColor = 'var(--vscode-focusBorder)';
-			btn.style.background = 'var(--vscode-list-hoverBackground)';
-		});
-		btn.addEventListener('mouseleave', () => {
-			btn.style.color = 'var(--vscode-descriptionForeground)';
-			btn.style.borderColor = 'var(--vscode-sideBar-border,var(--vscode-panel-border))';
-			btn.style.background = '';
-		});
-		btn.addEventListener('click', () => {
-			this.commandService.executeCommand('prendgame.openBoard');
-		});
+		const sprintTitle = append(sprintSection, $('div'));
+		sprintTitle.style.cssText = 'font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--vscode-descriptionForeground);margin-bottom:8px;';
+		sprintTitle.textContent = 'Sprint Progress';
+
+		// Progress bar
+		const doneTasks = groups.find(g => g.id === 'done')?.tasks.length || 0;
+		const pct = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
+
+		const barBg = append(sprintSection, $('div'));
+		barBg.style.cssText = 'height:6px;border-radius:3px;background:var(--vscode-editorWidget-background);overflow:hidden;margin-bottom:4px;';
+
+		const barFill = append(barBg, $('div'));
+		barFill.style.cssText = `height:100%;border-radius:3px;background:#22c55e;width:${pct}%;transition:width 0.3s;`;
+
+		const barLabel = append(sprintSection, $('div'));
+		barLabel.style.cssText = 'font-size:10px;color:var(--vscode-descriptionForeground);margin-bottom:10px;';
+		barLabel.textContent = `${doneTasks}/${totalTasks} done (${pct}%)`;
+
+		// -- Action buttons ---------------------------------------------------
+		const actions = append(root, $('div'));
+		actions.style.cssText = 'display:flex;gap:6px;padding:4px 16px 14px;';
+
+		const makeBtn = (label: string, command: string) => {
+			const b = append(actions, $('div'));
+			b.style.cssText = 'flex:1;display:flex;align-items:center;justify-content:center;padding:5px;border-radius:4px;border:1px solid var(--vscode-sideBar-border,var(--vscode-panel-border));cursor:pointer;font-size:11px;color:var(--vscode-descriptionForeground);transition:all 0.12s;';
+			b.textContent = label;
+			b.addEventListener('mouseenter', () => {
+				b.style.color = 'var(--vscode-foreground)';
+				b.style.borderColor = 'var(--vscode-focusBorder)';
+				b.style.background = 'var(--vscode-list-hoverBackground)';
+			});
+			b.addEventListener('mouseleave', () => {
+				b.style.color = 'var(--vscode-descriptionForeground)';
+				b.style.borderColor = 'var(--vscode-sideBar-border,var(--vscode-panel-border))';
+				b.style.background = '';
+			});
+			b.addEventListener('click', () => {
+				this.commandService.executeCommand(command);
+			});
+		};
+
+		makeBtn('Board', 'prendgame.openBoard');
+		makeBtn('Sprint', 'prendgame.openSprintDashboard');
 	}
 }
