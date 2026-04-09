@@ -11,7 +11,6 @@ import { registerIcon } from '../../../../platform/theme/common/iconRegistry.js'
 import { ViewPaneContainer } from '../../../browser/parts/views/viewPaneContainer.js';
 import { IViewContainersRegistry, IViewDescriptor, IViewsRegistry, ViewContainerLocation, Extensions as ViewExtensions } from '../../../common/views.js';
 import { PRendgameBoardPane } from './prendgameBoardPane.js';
-import './prendgame.css';
 
 // --- PRendgame View Container Registration ---
 
