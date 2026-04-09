@@ -288,7 +288,8 @@ function activate(context) {
 		}
 
 		const uri = vscode.Uri.file(filePath);
-		await vscode.commands.executeCommand('vscode.open', uri);
+		// Open in markdown preview mode for rich formatting
+		await vscode.commands.executeCommand('markdown.showPreview', uri);
 	}));
 
 	// -- Sprint Dashboard -----------------------------------------------------
