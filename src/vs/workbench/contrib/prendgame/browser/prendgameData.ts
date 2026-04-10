@@ -161,7 +161,7 @@ const _groups: IGroup[] = [
 ];
 
 const _docs: IDoc[] = [
-	{ id: 'doc-prd-v1', title: 'Core Task Management', type: 'prd', status: 'approved', priority: 'high', owner: 'Alex Chen', ownerInitials: 'AC', ownerColor: '#6366f1', tasksTotal: 4, tasksDone: 2, updatedAt: 'Mar 28', dueDate: '2026-04-14', content: '## Overview\n\nThe foundational feature of PRendgame: a kanban-style task board.\n\n## Goals\n\n1. Engineers can see and manage their tasks without opening a browser\n2. PMs can create and prioritize tasks in the same tool\n3. Task state is visible to AI agents via MCP\n\n## Requirements\n\n- [x] Default columns: Backlog, To Do, In Progress, In Review, Done\n- [x] Drag-and-drop between columns\n- [ ] Filter by assignee, label, priority, sprint\n- [ ] Comments thread\n- [ ] Activity log' },
+	{ id: 'doc-prd-v1', title: 'Core Task Management', type: 'prd', status: 'approved', priority: 'high', owner: 'Alex Chen', ownerInitials: 'AC', ownerColor: '#6366f1', tasksTotal: 4, tasksDone: 2, updatedAt: 'Mar 28', dueDate: '2026-04-14', content: '## User Stories\n\nAs an engineer, I want to see my assigned tasks in a kanban board inside my IDE so that I never leave my editor to check task status.\n\nAs a PM, I want to create and prioritize tasks in the same tool engineers use so that handoff friction is eliminated.\n\nAs an AI agent, I want to read task state via MCP so that I can update status after completing work.\n\n## UX Description\n\nThe task board appears in the right sidebar as a collapsible grouped list. Each status group (Backlog, To Do, In Progress, In Review, Done) shows its tasks as compact rows with a priority bar, task ID, title, and assignee avatar. Users can drag tasks between groups to change status. Clicking a task opens a detail view with inline editing for all fields.\n\n## Requirements\n\n1. Board displays 5 default status columns: Backlog, To Do, In Progress, In Review, Done\n2. Drag-and-drop moves tasks between status groups and updates status\n3. Each task row shows: priority color bar, monospace ID, title, assignee avatar\n4. Filter bar supports filtering by assignee, priority, and tags\n5. Clicking a task card opens inline detail view with all fields editable\n6. Comments thread with inline add\n7. Activity log showing system-generated history\n\n## Notes\n\nConsider adding keyboard shortcuts for power users. The board should feel as fast as typing in a terminal. Sprint context should be optional (some teams use continuous flow).\n\n## Attachments\n\n- Figma mockups: figma.com/file/prendgame-board\n- Competitive analysis: docs/vision/competitive-analysis.md' },
 	{ id: 'doc-prd-v2', title: 'Documentation & Diagrams', type: 'prd', status: 'draft', priority: 'medium', owner: 'Alex Chen', ownerInitials: 'AC', ownerColor: '#6366f1', tasksTotal: 1, tasksDone: 0, updatedAt: 'Apr 1', dueDate: '2026-04-21', content: '## Overview\n\nEmbed a rich document editor inside PRendgame.\n\n## Goals\n\n1. PMs can author requirements without leaving the IDE\n2. Documents are first-class objects linked to tasks\n3. AI agents can read documents to understand context' },
 	{ id: 'doc-prd-v3', title: 'AI-Native Integration (MCP)', type: 'prd', status: 'draft', priority: 'high', owner: 'Alex Chen', ownerInitials: 'AC', ownerColor: '#6366f1', tasksTotal: 2, tasksDone: 0, updatedAt: 'Apr 4', dueDate: '2026-04-25', content: '## Overview\n\nPRendgame is the project context layer that AI agents plug into via MCP.\n\n## MCP Tools\n\n- prendgame.tasks.list\n- prendgame.tasks.get\n- prendgame.tasks.create\n- prendgame.tasks.transition\n- prendgame.docs.list\n- prendgame.docs.get' },
 	{ id: 'doc-prd-v4', title: 'Cloud Sync & Collaboration', type: 'prd', status: 'draft', priority: 'medium', owner: 'Alex Chen', ownerInitials: 'AC', ownerColor: '#6366f1', tasksTotal: 5, tasksDone: 2, updatedAt: 'Apr 5', dueDate: '2026-04-18', content: '## Overview\n\nSupabase-backed cloud sync for team collaboration.\n\n## Tiers\n\n- Free: Local tasks and docs\n- Team: Cloud sync, shared boards\n- Enterprise: SSO, audit logs' },
@@ -252,6 +252,58 @@ export function createTasksFromDoc(docId: string): ITask[] {
 	_onDataChanged.fire();
 	return newTasks;
 }
+
+// -- Accessors ----------------------------------------------------------------
+
+// -- Org Context --------------------------------------------------------------
+
+export interface IOrgContext {
+	techStack: string;
+	codingStandards: string;
+	cicd: string;
+	testing: string;
+	commenting: string;
+	aiInstructions: string;
+}
+
+const _orgContext: IOrgContext = {
+	techStack: 'TypeScript, React, Node.js, PostgreSQL (Supabase), Tailwind CSS',
+	codingStandards: '- Use functional components\n- Prefer const over let\n- Max 200 lines per file\n- Use barrel exports\n- Error boundaries on all routes',
+	cicd: 'GitHub Actions. Push to main triggers: lint, test, build, deploy to staging. PR merge to production triggers production deploy.',
+	testing: 'Vitest for unit tests. Playwright for E2E. 80% coverage minimum. Tests live next to source files (*.test.ts).',
+	commenting: 'JSDoc on all exported functions. No inline comments unless logic is non-obvious. TODO comments must reference a task ID.',
+	aiInstructions: 'Always read the linked PRD before starting. Follow the coding standards above. Write tests for new functions. Create a PR with a description that references the task ID.',
+};
+
+export function getOrgContext(): IOrgContext { return _orgContext; }
+export function updateOrgContext(field: keyof IOrgContext, value: string): void {
+	_orgContext[field] = value;
+	_onDataChanged.fire();
+}
+
+// -- MCP Activity Log ---------------------------------------------------------
+
+export interface IMcpLogEntry {
+	timestamp: string;
+	agent: string;
+	agentColor: string;
+	tool: string;
+	params?: string;
+	result: string;
+}
+
+const _mcpLog: IMcpLogEntry[] = [
+	{ timestamp: '09:14:22', agent: 'Claude Code', agentColor: '#a855f7', tool: 'prendgame.org.getContext', result: 'Returned org context: TypeScript, React, Node.js, Supabase...' },
+	{ timestamp: '09:14:23', agent: 'Claude Code', agentColor: '#a855f7', tool: 'prendgame.org.getAIInstructions', result: 'Always read the linked PRD before starting. Follow coding standards...' },
+	{ timestamp: '09:14:25', agent: 'Claude Code', agentColor: '#a855f7', tool: 'prendgame.docs.getStructured', params: '{ id: "doc-prd-v1" }', result: 'Returned PRD: Core Task Management (7 requirements, 3 user stories)' },
+	{ timestamp: '09:14:30', agent: 'Claude Code', agentColor: '#a855f7', tool: 'prendgame.tasks.get', params: '{ id: "PRE-3" }', result: 'Returned task: Build kanban board webview (critical, in_progress)' },
+	{ timestamp: '09:32:15', agent: 'Claude Code', agentColor: '#a855f7', tool: 'prendgame.tasks.transition', params: '{ id: "PRE-3", status: "in_review" }', result: 'Task PRE-3 moved to In Review' },
+	{ timestamp: '10:01:44', agent: 'Gemini Code Assist', agentColor: '#4285f4', tool: 'prendgame.org.getAIInstructions', result: 'Always read the linked PRD before starting...' },
+	{ timestamp: '10:01:46', agent: 'Gemini Code Assist', agentColor: '#4285f4', tool: 'prendgame.tasks.list', params: '{ assignee: "SR", status: "todo" }', result: 'Returned 2 tasks: PRE-7, PRE-8' },
+	{ timestamp: '10:02:10', agent: 'Gemini Code Assist', agentColor: '#4285f4', tool: 'prendgame.docs.getStructured', params: '{ id: "doc-prd-v4" }', result: 'Returned PRD: Cloud Sync & Collaboration (3 tiers, draft)' },
+];
+
+export function getMcpLog(): IMcpLogEntry[] { return _mcpLog; }
 
 // -- Accessors ----------------------------------------------------------------
 

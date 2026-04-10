@@ -18,7 +18,7 @@ import { ICommandService } from '../../../../platform/commands/common/commands.j
 import { renderBoardContent } from './prendgameBoardPane.js';
 import { renderDocsContent } from './prendgameDocsPane.js';
 import { T } from './prendgameTheme.js';
-import { getGroups, getDocs, getMembers, findTask, findTaskGroup, onTaskChanged, onDocChanged, PRIORITY_COLORS, TASK_STATUS_COLORS, TASK_STATUS_LABELS, DOC_TYPE_COLORS, DOC_TYPE_LABELS, DOC_STATUS_COLORS, DOC_STATUS_LABELS } from './prendgameData.js';
+import { getGroups, getDocs, getMembers, getOrgContext, updateOrgContext, getMcpLog, findTask, findTaskGroup, onTaskChanged, onDocChanged, PRIORITY_COLORS, TASK_STATUS_COLORS, TASK_STATUS_LABELS, DOC_TYPE_COLORS, DOC_TYPE_LABELS, DOC_STATUS_COLORS, DOC_STATUS_LABELS } from './prendgameData.js';
 
 export class PRendgameMainPane extends ViewPane {
 
@@ -301,46 +301,148 @@ export class PRendgameMainPane extends ViewPane {
 		const switcher = append(workspaceWrap, $('div'));
 		switcher.style.cssText = `display:flex;border-bottom:1px solid ${T.border};`;
 
-		const engTab = append(switcher, $('div'));
-		const prodTab = append(switcher, $('div'));
-
+		const tabs: HTMLElement[] = [];
+		const tabNames = ['Engineering', 'Product', 'Settings'];
 		const tabBase = `flex:1;text-align:center;padding:10px 0;font-size:12px;font-weight:600;cursor:pointer;transition:all 0.12s;letter-spacing:0.02em;border-bottom:2px solid transparent;`;
 
-		engTab.style.cssText = `${tabBase}color:${T.text};border-bottom-color:${T.accent};`;
-		engTab.textContent = 'Engineering';
-		prodTab.style.cssText = `${tabBase}color:${T.textFaint};`;
-		prodTab.textContent = 'Product';
+		for (const name of tabNames) {
+			const tab = append(switcher, $('div'));
+			tabs.push(tab);
+			tab.style.cssText = `${tabBase}color:${name === 'Engineering' ? T.text : T.textFaint};${name === 'Engineering' ? `border-bottom-color:${T.accent};` : ''}`;
+			tab.textContent = name;
+		}
 
 		// -- Content areas -----------------------------------------------------
 		const engContent = append(workspaceWrap, $('div'));
 		const prodContent = append(workspaceWrap, $('div'));
 		prodContent.style.display = 'none';
+		const settingsContent = append(workspaceWrap, $('div'));
+		settingsContent.style.display = 'none';
 
+		const contentAreas = [engContent, prodContent, settingsContent];
 		let activeWorkspace = 'engineering';
 
 		function switchTo(workspace: string) {
 			activeWorkspace = workspace;
-			if (workspace === 'engineering') {
-				engContent.style.display = '';
-				prodContent.style.display = 'none';
-				engTab.style.cssText = `${tabBase}color:${T.text};border-bottom-color:${T.accent};`;
-				prodTab.style.cssText = `${tabBase}color:${T.textFaint};`;
-			} else {
-				engContent.style.display = 'none';
-				prodContent.style.display = '';
-				prodTab.style.cssText = `${tabBase}color:${T.text};border-bottom-color:${T.accent};`;
-				engTab.style.cssText = `${tabBase}color:${T.textFaint};`;
+			const idx = workspace === 'engineering' ? 0 : workspace === 'product' ? 1 : 2;
+			for (let i = 0; i < tabs.length; i++) {
+				const isActive = i === idx;
+				tabs[i].style.cssText = `${tabBase}color:${isActive ? T.text : T.textFaint};${isActive ? `border-bottom-color:${T.accent};` : ''}`;
+				contentAreas[i].style.display = isActive ? '' : 'none';
+			}
+			if (workspace === 'settings' && settingsContent.childElementCount === 0) {
+				renderSettings();
 			}
 		}
 
-		engTab.addEventListener('click', () => switchTo('engineering'));
-		prodTab.addEventListener('click', () => switchTo('product'));
+		for (let i = 0; i < tabs.length; i++) {
+			const ws = ['engineering', 'product', 'settings'][i];
+			tabs[i].addEventListener('click', () => switchTo(ws));
+			tabs[i].addEventListener('mouseenter', () => { if (activeWorkspace !== ws) { tabs[i].style.color = T.textMuted; } });
+			tabs[i].addEventListener('mouseleave', () => { if (activeWorkspace !== ws) { tabs[i].style.color = T.textFaint; } });
+		}
 
-		// Hover effects
-		engTab.addEventListener('mouseenter', () => { if (activeWorkspace !== 'engineering') { engTab.style.color = T.textMuted; } });
-		engTab.addEventListener('mouseleave', () => { if (activeWorkspace !== 'engineering') { engTab.style.color = T.textFaint; } });
-		prodTab.addEventListener('mouseenter', () => { if (activeWorkspace !== 'product') { prodTab.style.color = T.textMuted; } });
-		prodTab.addEventListener('mouseleave', () => { if (activeWorkspace !== 'product') { prodTab.style.color = T.textFaint; } });
+		// -- Settings content (org context + MCP log) -------------------------
+		function renderSettings() {
+			settingsContent.textContent = '';
+
+			// MCP disclosure
+			const disclosure = append(settingsContent, $('div'));
+			disclosure.style.cssText = `display:flex;align-items:center;gap:8px;padding:10px 20px;background:${T.accent}08;border-bottom:1px solid ${T.accent}20;font-size:11px;color:${T.accent};`;
+			disclosure.textContent = '\u{1F50C} This context is shared with AI agents via MCP';
+
+			// Org context sections
+			const ctx = getOrgContext();
+			const sections: Array<{ key: keyof typeof ctx; label: string }> = [
+				{ key: 'techStack', label: 'Tech Stack' },
+				{ key: 'codingStandards', label: 'Coding Standards' },
+				{ key: 'cicd', label: 'CI/CD Workflow' },
+				{ key: 'testing', label: 'Testing Standards' },
+				{ key: 'commenting', label: 'Commenting Practices' },
+				{ key: 'aiInstructions', label: 'AI Agent Instructions' },
+			];
+
+			for (const sec of sections) {
+				const section = append(settingsContent, $('div'));
+				section.style.cssText = `border-bottom:1px solid ${T.border};`;
+
+				const hdr = append(section, $('div'));
+				hdr.style.cssText = `display:flex;align-items:center;gap:8px;padding:10px 20px;cursor:pointer;transition:background 0.1s;`;
+				hdr.addEventListener('mouseenter', () => { hdr.style.background = T.surfaceHover; });
+				hdr.addEventListener('mouseleave', () => { hdr.style.background = ''; });
+
+				const twistie = append(hdr, $('span'));
+				twistie.style.cssText = `font-size:10px;color:${T.textFaint};transition:transform 0.15s;transform:rotate(90deg);`;
+				twistie.textContent = '\u25B6';
+
+				const label = append(hdr, $('span'));
+				label.style.cssText = `font-size:12px;font-weight:600;color:${T.text};`;
+				label.textContent = sec.label;
+
+				const body = append(section, $('div'));
+				body.style.cssText = `padding:0 20px 12px 36px;`;
+
+				const content = append(body, $('div'));
+				content.style.cssText = `font-size:12px;color:${T.textMuted};line-height:1.6;cursor:text;padding:4px;border-radius:${T.radiusSm};transition:background 0.1s;white-space:pre-wrap;`;
+				content.textContent = ctx[sec.key];
+				content.addEventListener('mouseenter', () => { content.style.background = T.surfaceHover; });
+				content.addEventListener('mouseleave', () => { content.style.background = ''; });
+				content.addEventListener('click', () => {
+					const textarea = document.createElement('textarea');
+					textarea.value = ctx[sec.key];
+					textarea.style.cssText = `width:100%;box-sizing:border-box;min-height:80px;background:${T.surface};border:1px solid ${T.accent};color:${T.text};padding:8px;border-radius:${T.radius};font-size:12px;font-family:inherit;line-height:1.6;outline:none;resize:vertical;`;
+					content.textContent = '';
+					content.appendChild(textarea);
+					textarea.focus();
+					textarea.addEventListener('blur', () => {
+						updateOrgContext(sec.key, textarea.value);
+						content.textContent = textarea.value;
+					});
+				});
+
+				hdr.addEventListener('click', () => {
+					const hidden = body.style.display === 'none';
+					body.style.display = hidden ? '' : 'none';
+					twistie.style.transform = hidden ? 'rotate(90deg)' : 'rotate(0deg)';
+				});
+			}
+
+			// MCP Activity Log section
+			const mcpSection = append(settingsContent, $('div'));
+			mcpSection.style.cssText = `padding:14px 20px;`;
+			const mcpTitle = append(mcpSection, $('div'));
+			mcpTitle.style.cssText = `font-size:11px;font-weight:600;color:${T.textFaint};text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px;`;
+			mcpTitle.textContent = 'MCP Activity Log';
+
+			// Tool definitions
+			const toolDefs = append(mcpSection, $('div'));
+			toolDefs.style.cssText = `font-size:11px;color:${T.textFaint};margin-bottom:12px;padding:8px;border:1px solid ${T.border};border-radius:${T.radiusSm};font-family:var(--monaco-monospace-font);white-space:pre;overflow-x:auto;`;
+			toolDefs.textContent = 'prendgame.org.getContext        \u2014 Get org tech stack, standards\nprendgame.org.getAIInstructions \u2014 Get AI agent instructions\nprendgame.docs.getStructured    \u2014 Get document with sections\nprendgame.tasks.list            \u2014 List tasks with filters\nprendgame.tasks.get             \u2014 Get task by ID\nprendgame.tasks.transition      \u2014 Change task status';
+
+			// Log entries
+			const log = getMcpLog();
+			for (const entry of log) {
+				const row = append(mcpSection, $('div'));
+				row.style.cssText = `display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid ${T.borderSubtle};`;
+
+				const ts = append(row, $('span'));
+				ts.style.cssText = `font-size:10px;color:${T.textFaint};font-family:var(--monaco-monospace-font);white-space:nowrap;min-width:55px;`;
+				ts.textContent = entry.timestamp;
+
+				const agentBadge = append(row, $('span'));
+				agentBadge.style.cssText = `font-size:9px;font-weight:600;padding:1px 6px;border-radius:3px;background:${entry.agentColor}20;color:${entry.agentColor};white-space:nowrap;flex-shrink:0;`;
+				agentBadge.textContent = entry.agent;
+
+				const info = append(row, $('div'));
+				info.style.cssText = 'flex:1;min-width:0;';
+				const toolName = append(info, $('div'));
+				toolName.style.cssText = `font-size:11px;color:${T.text};font-family:var(--monaco-monospace-font);`;
+				toolName.textContent = entry.tool + (entry.params ? ` ${entry.params}` : '');
+				const result = append(info, $('div'));
+				result.style.cssText = `font-size:10px;color:${T.textFaint};margin-top:2px;`;
+				result.textContent = entry.result;
+			}
+		}
 
 		// -- Render workspace content -----------------------------------------
 		renderBoardContent(engContent, this.commandService);
