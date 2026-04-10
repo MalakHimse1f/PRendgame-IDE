@@ -8,36 +8,60 @@ import { postMessage, onMessage } from '../shared/vscode-api.js';
 import '../shared/theme.css';
 import './document.css';
 
-function Avatar({ member, size = 'sm' }) {
-	return <span class={`pg-avatar pg-avatar--${size}`} style={{ background: member.color }}>{member.avatar}</span>;
+const STATUS_LABELS = { draft: 'Draft', in_review: 'In Review', approved: 'Approved', ready_for_dev: 'Ready for Dev', archived: 'Archived' };
+const STATUS_COLORS = { draft: '#71717a', in_review: '#a855f7', approved: '#22c55e', ready_for_dev: '#3b82f6', archived: '#3f3f46' };
+const PRIORITY_COLORS = { critical: '#ef4444', high: '#f97316', medium: '#eab308', low: '#52525b' };
+
+function Avatar({ initials, color, size = 18 }) {
+	return <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: size, height: size, borderRadius: '50%', fontSize: size * 0.4, fontWeight: 600, color: '#fff', background: color, flexShrink: 0 }}>{initials}</span>;
 }
 
-function simpleMarkdown(md) {
-	return md
-		.replace(/^### (.+)$/gm, '<h3>$1</h3>')
-		.replace(/^## (.+)$/gm, '<h2>$1</h2>')
-		.replace(/^# (.+)$/gm, '<h1>$1</h1>')
-		.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-		.replace(/`([^`]+)`/g, '<code>$1</code>')
-		.replace(/^- \[ \] (.+)$/gm, '<div class="doc-check"><input type="checkbox" disabled/> $1</div>')
-		.replace(/^- \[x\] (.+)$/gm, '<div class="doc-check"><input type="checkbox" checked disabled/> $1</div>')
-		.replace(/^- (.+)$/gm, '<li>$1</li>')
-		.replace(/^---$/gm, '<hr/>')
-		.replace(/```mermaid\n([\s\S]*?)```/gm, '<div class="doc-mermaid"><div class="doc-mermaid__label">Mermaid Diagram</div><pre>$1</pre></div>')
-		.replace(/```(\w*)\n([\s\S]*?)```/gm, '<pre class="doc-codeblock"><code>$2</code></pre>')
-		.replace(/\n\n/g, '<br/><br/>');
+// Parse content into structured sections
+function parseSections(content) {
+	const sections = [];
+	let current = null;
+	for (const line of content.split('\n')) {
+		if (line.startsWith('## ')) {
+			if (current) { sections.push(current); }
+			current = { title: line.slice(3), lines: [] };
+		} else if (current) {
+			current.lines.push(line);
+		}
+	}
+	if (current) { sections.push(current); }
+	return sections;
+}
+
+function SectionContent({ lines }) {
+	return (
+		<div class="doc-section-body">
+			{lines.map((line, i) => {
+				if (line.startsWith('- [x] ')) {
+					return <div key={i} class="doc-check doc-check--done">{'\u2611'} {line.slice(6)}</div>;
+				}
+				if (line.startsWith('- [ ] ')) {
+					return <div key={i} class="doc-check">{'\u2610'} {line.slice(6)}</div>;
+				}
+				if (/^\d+\. /.test(line)) {
+					return <div key={i} class="doc-numbered">{line}</div>;
+				}
+				if (line.startsWith('- ')) {
+					return <div key={i} class="doc-bullet">{'\u2022'} {line.slice(2)}</div>;
+				}
+				if (line.trim() === '') { return <br key={i} />; }
+				return <div key={i} class="doc-text">{line}</div>;
+			})}
+		</div>
+	);
 }
 
 function DocumentView() {
 	const [data, setData] = useState(null);
-	const [mode, setMode] = useState('preview');
-	const [editContent, setEditContent] = useState('');
 
 	useEffect(() => {
 		onMessage((msg) => {
 			if (msg.command === 'init') {
 				setData(msg.data);
-				setEditContent(msg.data.doc.content);
 			}
 		});
 		postMessage('ready');
@@ -45,55 +69,61 @@ function DocumentView() {
 
 	if (!data) { return <div class="doc-loading">Loading...</div>; }
 
-	const { doc, author, linkedTasks } = data;
+	const { doc, linkedTasks, locked } = data;
+	const sections = parseSections(doc.content);
+	const sc = STATUS_COLORS[doc.status] || '#666';
+	const pc = PRIORITY_COLORS[doc.priority] || '#52525b';
 
 	return (
 		<div class="doc-layout">
-			<div class="doc-main">
-				<div class="doc-mode-toggle">
-					<button class={`pg-btn ${mode === 'preview' ? 'pg-btn--primary' : ''}`} onClick={() => setMode('preview')}>Preview</button>
-					<button class={`pg-btn ${mode === 'edit' ? 'pg-btn--primary' : ''}`} onClick={() => setMode('edit')}>Edit</button>
-					<button class="pg-btn" style={{ marginLeft: 'auto' }} onClick={() => postMessage('openInEditor')}>Open in Editor</button>
-				</div>
-
-				<h1 class="doc-title">{doc.title}</h1>
-				<div class="doc-meta-bar">
-					<Avatar member={author} size="sm" />
-					<span>{author.name}</span>
-					<span class={`pg-status pg-status--${doc.status === 'approved' ? 'done' : 'todo'}`}>{doc.status}</span>
-					<span class="doc-meta-date">Updated {(doc.updatedAt || '').slice(0, 10)}</span>
-				</div>
-
-				{mode === 'preview' ? (
-					<div class="doc-content" dangerouslySetInnerHTML={{ __html: simpleMarkdown(doc.content) }} />
-				) : (
-					<textarea
-						class="doc-editor pg-input"
-						value={editContent}
-						onInput={e => setEditContent(e.target.value)}
-					/>
+			<div class="doc-centered">
+				{locked && (
+					<div class="doc-lock-banner">
+						{'\u{1F512}'} Locked — In Development
+					</div>
 				)}
-			</div>
 
-			<div class="doc-sidebar">
-				<div class="doc-sidebar__section">
-					<h3 class="doc-sidebar__title">Details</h3>
-					<div class="doc-sidebar__row"><strong>Type:</strong> {doc.type.toUpperCase()}</div>
-					<div class="doc-sidebar__row"><strong>Author:</strong> {author.name}</div>
-					<div class="doc-sidebar__row"><strong>Status:</strong> {doc.status}</div>
-					<div class="doc-sidebar__row"><strong>Created:</strong> {(doc.createdAt || '').slice(0, 10)}</div>
+				<div class="doc-header">
+					<span class="doc-type-badge" style={{ background: '#6366f120', color: '#6366f1' }}>
+						{(doc.type || 'prd').toUpperCase()}
+					</span>
+					<h1 class="doc-title">{doc.title}</h1>
+					<div class="doc-meta-bar">
+						<span class="doc-status-pill" style={{ background: sc + '20', color: sc }}>{STATUS_LABELS[doc.status] || doc.status}</span>
+						<span class="doc-priority-pill" style={{ background: pc + '20', color: pc }}>{(doc.priority || 'medium').charAt(0).toUpperCase() + (doc.priority || 'medium').slice(1)}</span>
+						<Avatar initials={doc.ownerInitials} color={doc.ownerColor} size={18} />
+						<span class="doc-meta-owner">{doc.owner}</span>
+						{doc.dueDate && <span class="doc-meta-date">Due {doc.dueDate}</span>}
+					</div>
 				</div>
 
-				{linkedTasks.length > 0 && (
-					<div class="doc-sidebar__section">
-						<h3 class="doc-sidebar__title">Linked Tasks</h3>
+				<div class="doc-properties">
+					<div class="doc-prop-row"><span class="doc-prop-label">Type</span><span>{(doc.type || 'prd').toUpperCase()}</span></div>
+					<div class="doc-prop-row"><span class="doc-prop-label">Status</span><span style={{ color: sc }}>{STATUS_LABELS[doc.status] || doc.status}</span></div>
+					<div class="doc-prop-row"><span class="doc-prop-label">Priority</span><span style={{ color: pc }}>{(doc.priority || 'medium').charAt(0).toUpperCase() + (doc.priority || 'medium').slice(1)}</span></div>
+					<div class="doc-prop-row"><span class="doc-prop-label">Assignee</span><span>{doc.owner}</span></div>
+					{doc.dueDate && <div class="doc-prop-row"><span class="doc-prop-label">Due Date</span><span>{doc.dueDate}</span></div>}
+					<div class="doc-prop-row"><span class="doc-prop-label">Updated</span><span>{doc.updatedAt}</span></div>
+				</div>
+
+				{sections.map((sec, i) => (
+					<section key={i} class="doc-section">
+						<h2 class="doc-section__title">{sec.title}</h2>
+						<SectionContent lines={sec.lines} />
+					</section>
+				))}
+
+				{linkedTasks && linkedTasks.length > 0 && (
+					<section class="doc-section">
+						<h2 class="doc-section__title">Linked Tasks ({linkedTasks.length})</h2>
 						{linkedTasks.map(t => (
-							<div key={t.id} class="doc-sidebar__link" onClick={() => postMessage('openTask', { taskId: t.id })}>
-								<span class="doc-sidebar__link-id">{t.id}</span>
-								{t.title.length > 35 ? t.title.slice(0, 35) + '...' : t.title}
+							<div key={t.id} class="doc-linked-task" onClick={() => postMessage('openTask', { taskId: t.id })}>
+								<span class="doc-linked-task__bar" style={{ background: PRIORITY_COLORS[t.priority] || '#52525b' }} />
+								<span class="doc-linked-task__id">{t.id}</span>
+								<span class="doc-linked-task__title">{t.title}</span>
 							</div>
 						))}
-					</div>
+					</section>
 				)}
 			</div>
 		</div>

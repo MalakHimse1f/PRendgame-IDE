@@ -8,24 +8,16 @@ import { postMessage, onMessage } from '../shared/vscode-api.js';
 import '../shared/theme.css';
 import './mcp-log.css';
 
-const AGENT_COLORS = {
-	'Claude Code': '#d97706',
-	'GitHub Copilot': '#6366f1',
-	'Gemini Code Assist': '#06b6d4',
-	'OpenAI Codex': '#10b981',
-};
-
 function LogEntry({ entry, isNew }) {
 	return (
 		<div class={`mcp-entry ${isNew ? 'mcp-entry--new' : ''}`}>
 			<div class="mcp-entry__header">
-				<span class="mcp-entry__time">{entry.timestamp.slice(11, 19)}</span>
-				<span class="mcp-entry__agent" style={{ background: AGENT_COLORS[entry.agent] || '#666' }}>{entry.agent}</span>
+				<span class="mcp-entry__time">{entry.timestamp}</span>
+				<span class="mcp-entry__agent" style={{ background: entry.agentColor || '#666' }}>{entry.agent}</span>
 				<span class="mcp-entry__tool">{entry.tool}</span>
-				<span class="mcp-entry__duration">{entry.duration}</span>
 			</div>
 			<div class="mcp-entry__body">
-				<div class="mcp-entry__params">{JSON.stringify(entry.params)}</div>
+				{entry.params && <div class="mcp-entry__params">{entry.params}</div>}
 				<div class="mcp-entry__result">{entry.result}</div>
 			</div>
 		</div>
@@ -50,9 +42,9 @@ function McpLog() {
 	function simulateCall() {
 		setSimulating(true);
 		const fakeEntries = [
-			{ agent: 'Claude Code', tool: 'prendgame.tasks.get', params: { id: 'PRE-5' }, result: 'Returned task PRE-5: Create sidebar tree views (In Progress)', duration: '52ms' },
-			{ agent: 'Claude Code', tool: 'prendgame.docs.get', params: { id: 'doc-prd-v1' }, result: 'Returned PRD v1 -- Core Task Management (2.4 KB)', duration: '41ms' },
-			{ agent: 'Claude Code', tool: 'prendgame.tasks.transition', params: { id: 'PRE-5', status: 'in_review' }, result: 'Task PRE-5 moved from In Progress -> In Review', duration: '68ms' },
+			{ agent: 'Claude Code', agentColor: '#a855f7', tool: 'prendgame.tasks.get', params: '{ id: "PRE-5" }', result: 'Returned task PRE-5: Create sidebar tree views (In Progress)', timestamp: new Date().toTimeString().slice(0, 8) },
+			{ agent: 'Claude Code', agentColor: '#a855f7', tool: 'prendgame.docs.getStructured', params: '{ id: "doc-prd-v1" }', result: 'Returned PRD: Core Task Management (7 requirements, 3 user stories)', timestamp: new Date().toTimeString().slice(0, 8) },
+			{ agent: 'Claude Code', agentColor: '#a855f7', tool: 'prendgame.tasks.transition', params: '{ id: "PRE-5", status: "in_review" }', result: 'Task PRE-5 moved to In Review', timestamp: new Date().toTimeString().slice(0, 8) },
 		];
 
 		let i = 0;
@@ -62,8 +54,7 @@ function McpLog() {
 				setSimulating(false);
 				return;
 			}
-			const entry = { ...fakeEntries[i], timestamp: new Date().toISOString(), _new: true };
-			setEntries(prev => [...prev, entry]);
+			setEntries(prev => [...prev, { ...fakeEntries[i], _new: true }]);
 			i++;
 		}, 1200);
 	}
@@ -80,14 +71,14 @@ function McpLog() {
 				</button>
 			</div>
 
-			<div class="mcp-status">
-				<span class="mcp-status__dot" />
-				MCP server running on localhost:3100 -- {entries.length} tool calls recorded
-			</div>
-
 			<div class="mcp-info">
 				PRendgame does <strong>not</strong> include a built-in AI agent. This log shows tool calls from
 				<strong> external agents</strong> (Claude Code, Copilot, Gemini, Codex) that connect via MCP.
+			</div>
+
+			<div class="mcp-status">
+				<span class="mcp-status__dot" />
+				MCP server running — {entries.length} tool calls recorded
 			</div>
 
 			<div class="mcp-entries">
@@ -106,6 +97,17 @@ function McpLog() {
 						'\t\t}\n' +
 						'\t}\n' +
 						'}'
+					}</pre>
+				<h3 class="mcp-config__title" style={{ marginTop: 12 }}>Available Tools</h3>
+				<pre class="mcp-config__code">{
+						'prendgame.org.getContext        — Get org tech stack, standards\n' +
+						'prendgame.org.getAIInstructions — Get AI agent instructions\n' +
+						'prendgame.docs.getStructured    — Get document with sections\n' +
+						'prendgame.tasks.list            — List tasks with filters\n' +
+						'prendgame.tasks.get             — Get task by ID\n' +
+						'prendgame.tasks.create          — Create a task\n' +
+						'prendgame.tasks.transition      — Change task status\n' +
+						'prendgame.links.get             — Get linked items'
 					}</pre>
 			</div>
 		</div>

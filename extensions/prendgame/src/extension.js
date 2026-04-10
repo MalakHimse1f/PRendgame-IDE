@@ -242,20 +242,20 @@ function activate(context) {
 		);
 		panel.webview.html = getWebviewHTML(panel.webview, extUri, 'task-detail/index.js');
 		const linkedDocs = (task.linkedDocs || []).map(id => store.docs.documents.find(d => d.id === id)).filter(Boolean);
-		const assignee = store.getMember(task.assignee) || { name: 'Unassigned' };
 		const comments = [
-			{ author: 'user-001', text: 'Please make sure the acceptance criteria cover edge cases.', time: '2 days ago' },
-			{ author: 'user-003', text: 'Good point, I will add handling for the zero-task state.', time: '1 day ago' },
-			{ author: 'user-007', text: 'Adding to my QA checklist.', time: '3 hours ago' },
+			{ author: 'Alex Chen', initials: 'AC', color: '#6366f1', text: 'Please make sure the acceptance criteria cover edge cases.', time: '2 days ago' },
+			{ author: 'Jordan Park', initials: 'JP', color: '#06b6d4', text: 'Good point, I will add handling for the zero-task state.', time: '1 day ago' },
+			{ author: 'Avery Quinn', initials: 'AQ', color: '#ec4899', text: 'Adding to my QA checklist.', time: '3 hours ago' },
 		];
 		const activity = [
-			{ action: 'created this task', who: assignee.name, when: (task.createdAt || '').slice(0, 10) },
-			{ action: 'moved to ' + task.status, who: assignee.name, when: (task.updatedAt || '').slice(0, 10) },
+			{ text: 'Alex Chen created this task', color: '#6366f1', time: (task.createdAt || 'Mar 25').slice(0, 10) },
+			{ text: 'Morgan Liu changed status to In Progress', color: '#10b981', time: 'Apr 7' },
+			{ text: 'Claude Code changed status to In Review via MCP', color: '#a855f7', time: 'Apr 8' },
 		];
 
 		panel.webview.onDidReceiveMessage(msg => {
 			if (msg.command === 'ready') {
-				panel.webview.postMessage({ command: 'init', data: { task, members: store.team.members, linkedDocs, comments, activity } });
+				panel.webview.postMessage({ command: 'init', data: { task: { ...task, tags: task.labels || task.tags || [] }, members: store.team.members, linkedDocs, comments, activity } });
 			} else if (msg.command === 'statusChange') {
 				const t = store.tasks.tasks.find(x => x.id === msg.taskId);
 				if (t) { t.status = msg.newStatus; refreshAll(); }
@@ -292,12 +292,12 @@ function activate(context) {
 		);
 		panel.webview.html = getWebviewHTML(panel.webview, extUri, 'document/index.js');
 
-		const author = store.getMember(doc.author) || { name: 'Unknown', avatar: '?', color: '#666' };
 		const linkedTasks = (doc.linkedTasks || []).map(id => store.tasks.tasks.find(t => t.id === id)).filter(Boolean);
+		const locked = linkedTasks.some(t => ['in_progress', 'in_review', 'done'].includes(t.status));
 
 		panel.webview.onDidReceiveMessage(msg => {
 			if (msg.command === 'ready') {
-				panel.webview.postMessage({ command: 'init', data: { doc, author, linkedTasks } });
+				panel.webview.postMessage({ command: 'init', data: { doc, linkedTasks, locked } });
 			} else if (msg.command === 'openTask') {
 				vscode.commands.executeCommand('prendgame.openTaskDetail', msg.taskId);
 			} else if (msg.command === 'openInEditor') {
@@ -342,7 +342,17 @@ function activate(context) {
 		panel.webview.html = getWebviewHTML(panel.webview, extUri, 'mcp-log/index.js');
 		panel.webview.onDidReceiveMessage(msg => {
 			if (msg.command === 'ready') {
-				panel.webview.postMessage({ command: 'init', data: store.mcpLog });
+				const entries = (store.mcpLog && store.mcpLog.entries) || [
+					{ timestamp: '09:14:22', agent: 'Claude Code', agentColor: '#a855f7', tool: 'prendgame.org.getContext', result: 'Returned org context: TypeScript, React, Node.js, Supabase...' },
+					{ timestamp: '09:14:23', agent: 'Claude Code', agentColor: '#a855f7', tool: 'prendgame.org.getAIInstructions', result: 'Always read the linked PRD before starting...' },
+					{ timestamp: '09:14:25', agent: 'Claude Code', agentColor: '#a855f7', tool: 'prendgame.docs.getStructured', params: '{ id: "doc-prd-v1" }', result: 'Returned PRD: Core Task Management (7 requirements, 3 user stories)' },
+					{ timestamp: '09:14:30', agent: 'Claude Code', agentColor: '#a855f7', tool: 'prendgame.tasks.get', params: '{ id: "PRE-3" }', result: 'Returned task: Build kanban board webview (critical, in_progress)' },
+					{ timestamp: '09:32:15', agent: 'Claude Code', agentColor: '#a855f7', tool: 'prendgame.tasks.transition', params: '{ id: "PRE-3", status: "in_review" }', result: 'Task PRE-3 moved to In Review' },
+					{ timestamp: '10:01:44', agent: 'Gemini Code Assist', agentColor: '#4285f4', tool: 'prendgame.org.getAIInstructions', result: 'Always read the linked PRD before starting...' },
+					{ timestamp: '10:01:46', agent: 'Gemini Code Assist', agentColor: '#4285f4', tool: 'prendgame.tasks.list', params: '{ assignee: "SR", status: "todo" }', result: 'Returned 2 tasks: PRE-7, PRE-8' },
+					{ timestamp: '10:02:10', agent: 'Gemini Code Assist', agentColor: '#4285f4', tool: 'prendgame.docs.getStructured', params: '{ id: "doc-prd-v4" }', result: 'Returned PRD: Cloud Sync & Collaboration (3 tiers, draft)' },
+				];
+				panel.webview.postMessage({ command: 'init', data: { entries } });
 			}
 		});
 	}));
