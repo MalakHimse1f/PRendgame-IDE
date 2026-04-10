@@ -307,10 +307,25 @@ export function renderDocsContent(root: HTMLElement, commandService: { executeCo
 		boardWrap.style.cssText = 'padding:8px 0;';
 
 		let dragDocId: string | null = null;
+		const docDropZones: HTMLElement[] = [];
+
+		const isStatusGrouping = activeGroupBy === 'none' || activeGroupBy === 'status';
+
+		function showDocDropHighlights() {
+			for (const dz of docDropZones) {
+				dz.style.cssText = `height:32px;margin:3px 20px;border-radius:${T.radius};background:${T.accentMuted};border:1px dashed ${T.accent};transition:height 0.2s ease,opacity 0.2s;display:flex;align-items:center;justify-content:center;font-size:11px;color:${T.accent};opacity:1;`;
+				dz.textContent = 'Drop here';
+			}
+		}
+
+		function clearDocDropHighlights() {
+			for (const dz of docDropZones) {
+				dz.style.cssText = `height:0;transition:height 0.2s ease,opacity 0.2s;overflow:hidden;opacity:0;`;
+			}
+		}
 
 		for (const vg of viewGroups) {
-			const isStatusGrouping = activeGroupBy === 'none' || activeGroupBy === 'status';
-			renderCollapsibleGroup<IDoc>({
+			const result = renderCollapsibleGroup<IDoc>({
 				container: boardWrap,
 				group: vg,
 				collapsed: false,
@@ -325,8 +340,9 @@ export function renderDocsContent(root: HTMLElement, commandService: { executeCo
 							dragDocId = d.id;
 							row.style.opacity = '0.3';
 							if ((e as DragEvent).dataTransfer) { (e as DragEvent).dataTransfer!.effectAllowed = 'move'; (e as DragEvent).dataTransfer!.setData('text/plain', d.id); }
+							showDocDropHighlights();
 						});
-						row.addEventListener('dragend', () => { dragDocId = null; row.style.opacity = '1'; });
+						row.addEventListener('dragend', () => { dragDocId = null; row.style.opacity = '1'; clearDocDropHighlights(); });
 					}
 					row.addEventListener('mouseenter', () => { row.style.background = T.surfaceHover; });
 					row.addEventListener('mouseleave', () => { row.style.background = ''; });
@@ -355,11 +371,13 @@ export function renderDocsContent(root: HTMLElement, commandService: { executeCo
 								targetDoc.status = groupKey;
 							}
 							dragDocId = null;
+							clearDocDropHighlights();
 							rebuildList();
 						}
 					},
 				} : undefined,
 			});
+			if (result.dropZone) { docDropZones.push(result.dropZone); }
 		}
 	}
 
