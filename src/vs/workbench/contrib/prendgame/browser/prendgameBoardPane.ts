@@ -5,7 +5,7 @@
 
 import { $, append, getWindow } from '../../../../base/browser/dom.js';
 import { T } from './prendgameTheme.js';
-import { getGroups, getMembers, getDocs, findTask, findTaskGroup, getDueDateStyle, getLinkedDocs, getLinkedTasks, addLink, getReadyForDevDocs, createTasksFromDoc, PRIORITY_COLORS, PRIORITY_LABELS, TASK_STATUS_COLORS as STATUS_COLORS, TASK_STATUS_LABELS, TASK_STATUSES, DOC_TYPE_COLORS, DOC_TYPE_LABELS, DOC_STATUS_COLORS, DOC_STATUS_LABELS, ITask, ISubtask, IDoc } from './prendgameData.js';
+import { getGroups, getMembers, getDocs, findTask, findTaskGroup, getDueDateStyle, getLinkedDocs, getLinkedTasks, addLink, getReadyForDevDocs, createTasksFromDoc, onTaskChanged, PRIORITY_COLORS, PRIORITY_LABELS, TASK_STATUS_COLORS as STATUS_COLORS, TASK_STATUS_LABELS, TASK_STATUSES, DOC_TYPE_COLORS, DOC_TYPE_LABELS, DOC_STATUS_COLORS, DOC_STATUS_LABELS, ITask, ISubtask, IDoc } from './prendgameData.js';
 import { renderMarkdownToDOM } from './prendgameDocsPane.js';
 import { groupItemsBy, renderCollapsibleGroup, IViewGroup } from './prendgameViewUtils.js';
 
@@ -552,6 +552,51 @@ export function renderBoardContent(root: HTMLElement, commandService: { executeC
 
 		sendBtn.addEventListener('click', addComment);
 		commentInput.addEventListener('keydown', (ke) => { if (ke.key === 'Enter') { addComment(); } });
+
+		// Activity Log
+		const actSection = append(detailContainer, $('div'));
+		actSection.style.cssText = `padding:14px 20px;border-bottom:1px solid ${T.border};`;
+		const actTitle = append(actSection, $('div'));
+		actTitle.style.cssText = `font-size:11px;font-weight:600;color:${T.textFaint};text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px;`;
+		actTitle.textContent = 'Activity';
+
+		const actList = append(actSection, $('div'));
+
+		const mockActivity: { initials: string; color: string; text: string; time: string }[] = [
+			{ initials: 'AC', color: '#6366f1', text: 'Alex Chen created this task', time: 'Mar 25' },
+			{ initials: 'TR', color: '#8b5cf6', text: 'Taylor Reeves assigned to Morgan Liu', time: 'Apr 1' },
+			{ initials: 'ML', color: '#10b981', text: 'Morgan Liu changed status to In Progress', time: 'Apr 7' },
+			{ initials: 'JP', color: '#06b6d4', text: 'Jordan Park linked PRD v1', time: 'Apr 7' },
+			{ initials: 'AI', color: '#a855f7', text: 'Claude Code changed status to In Review via MCP', time: 'Apr 8' },
+		];
+
+		function renderActivityEntry(a: { initials: string; color: string; text: string; time: string }, prepend?: boolean) {
+			const entry = document.createElement('div');
+			entry.style.cssText = `display:flex;align-items:flex-start;gap:8px;padding:3px 0;`;
+			const dot = document.createElement('span');
+			dot.style.cssText = `width:6px;height:6px;border-radius:50%;background:${a.color};flex-shrink:0;margin-top:5px;`;
+			entry.appendChild(dot);
+			const content = document.createElement('span');
+			content.style.cssText = `font-size:11px;color:${T.textMuted};flex:1;line-height:1.4;`;
+			content.textContent = a.text;
+			entry.appendChild(content);
+			const time = document.createElement('span');
+			time.style.cssText = `font-size:10px;color:${T.textFaint};white-space:nowrap;flex-shrink:0;`;
+			time.textContent = a.time;
+			entry.appendChild(time);
+			if (prepend && actList.firstChild) { actList.insertBefore(entry, actList.firstChild); }
+			else { actList.appendChild(entry); }
+		}
+
+		for (const a of mockActivity) { renderActivityEntry(a); }
+
+		// Subscribe to live task changes for this task
+		const taskActivityDisposable = onTaskChanged((e) => {
+			if (e.taskId === task.id) {
+				const label = e.field === 'status' ? `You changed status` : e.field === 'priority' ? `You changed priority` : `You updated ${e.field}`;
+				renderActivityEntry({ initials: 'JP', color: '#06b6d4', text: label, time: 'Just now' }, true);
+			}
+		});
 
 		// Linked Code
 		const codeSection = append(detailContainer, $('div'));
