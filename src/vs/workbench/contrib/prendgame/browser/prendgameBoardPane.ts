@@ -15,6 +15,8 @@ export function renderBoardContent(root: HTMLElement, commandService: { executeC
 
 	const groups = getGroups();
 	const members = getMembers();
+	const selectedTaskIds = new Set<string>();
+	let bulkBar: HTMLElement | null = null;
 
 	// Drill-in containers
 	const boardContainer = append(root, $('div'));
@@ -1417,8 +1419,6 @@ export function renderBoardContent(root: HTMLElement, commandService: { executeC
 	}
 
 	// == Bulk Actions =========================================================
-	const selectedTaskIds = new Set<string>();
-	let bulkBar: HTMLElement | null = null;
 
 	function updateBulkBar() {
 		if (selectedTaskIds.size === 0) {
