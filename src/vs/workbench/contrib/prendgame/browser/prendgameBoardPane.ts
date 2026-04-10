@@ -641,15 +641,6 @@ export function renderBoardContent(root: HTMLElement, commandService: { executeC
 		linkCodeBtn.addEventListener('mouseenter', () => { linkCodeBtn.style.color = T.text; linkCodeBtn.style.borderColor = T.accent; linkCodeBtn.style.background = T.surfaceHover; });
 		linkCodeBtn.addEventListener('mouseleave', () => { linkCodeBtn.style.color = T.textMuted; linkCodeBtn.style.borderColor = T.border; linkCodeBtn.style.background = ''; });
 
-		// Open in Editor button
-		const btnWrap = append(detailContainer, $('div'));
-		btnWrap.style.cssText = `padding:12px 20px;`;
-		const openBtn = append(btnWrap, $('div'));
-		openBtn.style.cssText = `display:flex;align-items:center;justify-content:center;padding:7px;border-radius:${T.radius};border:1px solid ${T.border};cursor:pointer;font-size:11px;font-weight:500;color:${T.textMuted};transition:all 0.15s;`;
-		openBtn.textContent = 'Open in Editor';
-		openBtn.addEventListener('mouseenter', () => { openBtn.style.color = T.text; openBtn.style.borderColor = T.accent; openBtn.style.background = T.surfaceHover; });
-		openBtn.addEventListener('mouseleave', () => { openBtn.style.color = T.textMuted; openBtn.style.borderColor = T.border; openBtn.style.background = ''; });
-		openBtn.addEventListener('click', () => { commandService.executeCommand('prendgame.openTaskDetail', task.id); });
 	}
 
 	// -- Cross-drill: linked doc detail -------------------------------------------
@@ -1238,31 +1229,6 @@ export function renderBoardContent(root: HTMLElement, commandService: { executeC
 	barText.style.cssText = `font-size:11px;color:${T.textFaint};`;
 	barText.textContent = `${doneTasks} of ${allTaskCount} complete (${pct}%)`;
 
-	// == Action buttons =======================================================
-	const actions = append(boardViewContainer, $('div'));
-	actions.style.cssText = `display:flex;gap:8px;padding:8px 20px 20px;`;
-
-	const makeBtn = (btnLabel: string, command: string, isPrimary?: boolean) => {
-		const b = append(actions, $('div'));
-		const bg = isPrimary ? T.accent : 'transparent';
-		const fg = isPrimary ? '#fff' : T.textMuted;
-		const bdr = isPrimary ? T.accent : T.border;
-		b.style.cssText = `flex:1;display:flex;align-items:center;justify-content:center;padding:7px;border-radius:${T.radius};border:1px solid ${bdr};cursor:pointer;font-size:11px;font-weight:500;color:${fg};background:${bg};transition:all 0.15s;letter-spacing:0;`;
-		b.textContent = btnLabel;
-		b.addEventListener('mouseenter', () => {
-			if (isPrimary) { b.style.opacity = '0.85'; }
-			else { b.style.color = T.text; b.style.borderColor = T.accent; b.style.background = T.surfaceHover; }
-		});
-		b.addEventListener('mouseleave', () => {
-			if (isPrimary) { b.style.opacity = '1'; }
-			else { b.style.color = fg; b.style.borderColor = bdr; b.style.background = 'transparent'; }
-		});
-		b.addEventListener('click', () => { commandService.executeCommand(command); });
-	};
-
-	makeBtn('Board', 'prendgame.openBoard', true);
-	makeBtn('Sprint', 'prendgame.openSprintDashboard');
-	makeBtn('MCP Log', 'prendgame.openMcpLog');
 
 	// == Sprint Planning View =================================================
 	function renderSprintPlanning() {

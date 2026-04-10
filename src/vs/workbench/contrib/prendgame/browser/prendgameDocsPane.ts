@@ -790,16 +790,6 @@ export function renderDocsContent(root: HTMLElement, commandService: { executeCo
 		addTagBtn.addEventListener('mouseenter', () => { addTagBtn.style.color = T.text; addTagBtn.style.borderColor = T.accent; });
 		addTagBtn.addEventListener('mouseleave', () => { addTagBtn.style.color = T.textFaint; addTagBtn.style.borderColor = T.border; });
 
-		// Open in Editor button (single, not a mode toggle)
-		const openEditorWrap = append(detailContainer, $('div'));
-		openEditorWrap.style.cssText = 'padding:10px 20px;';
-		const openEditorBtn = append(openEditorWrap, $('span'));
-		openEditorBtn.style.cssText = `font-size:11px;padding:4px 12px;border-radius:${T.radiusSm};border:1px solid ${T.border};cursor:pointer;color:${T.textMuted};transition:all 0.12s;`;
-		openEditorBtn.textContent = 'Open in Editor';
-		openEditorBtn.addEventListener('mouseenter', () => { openEditorBtn.style.color = T.text; openEditorBtn.style.borderColor = T.accent; });
-		openEditorBtn.addEventListener('mouseleave', () => { openEditorBtn.style.color = T.textMuted; openEditorBtn.style.borderColor = T.border; });
-		openEditorBtn.addEventListener('click', () => { commandService.executeCommand('prendgame.openDocument', doc.id); });
-
 		// Inline editable content blocks
 		const contentSection = append(detailContainer, $('div'));
 		contentSection.style.cssText = `padding:12px 20px 20px;`;
