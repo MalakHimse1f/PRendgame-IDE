@@ -244,7 +244,7 @@ export function renderDocsContent(root: HTMLElement, commandService: { executeCo
 		btn.addEventListener('mouseleave', () => { btn.style.color = T.textMuted; btn.style.borderColor = T.border; btn.style.background = ''; });
 		btn.addEventListener('click', () => {
 			const id = `doc-new-${Date.now()}`;
-			docs.unshift({ id, title: 'Untitled Document', type: 'prd', status: 'draft', priority: 'medium', owner: 'Alex Chen', ownerInitials: 'AC', ownerColor: '#6366f1', tasksTotal: 0, tasksDone: 0, updatedAt: 'Just now', dueDate: '', content: '## User Stories\n\nAs a [persona], I want [action] so that [outcome].\n\n## UX Description\n\nDescribe how the feature looks and behaves from the user perspective.\n\n## Requirements\n\n1. First requirement\n2. Second requirement\n3. Third requirement\n\n## Notes\n\nAdd context, links, thoughts, or questions here.\n\n## Attachments\n\n- Link to mockups or references' });
+			docs.unshift({ id, title: 'Untitled Document', type: 'prd', status: 'draft', priority: 'medium', owner: 'Alex Chen', ownerInitials: 'AC', ownerColor: '#6366f1', tasksTotal: 0, tasksDone: 0, updatedAt: 'Just now', dueDate: '', content: '## User Stories\n\nAs a [persona], I want [action] so that [outcome].\n\n## UX Description\n\nDescribe how the feature looks and behaves from the user perspective.\n\n## Requirements\n\n1. First requirement\n2. Second requirement\n3. Third requirement\n\n## Acceptance Criteria\n\n- [ ] First criterion\n- [ ] Second criterion\n- [ ] Third criterion\n\n## Notes\n\nAdd context, links, thoughts, or questions here.\n\n## Attachments\n\n- Link to mockups or references' });
 			showDetail(id);
 		});
 	}
