@@ -745,10 +745,21 @@ export function renderBoardContent(root: HTMLElement, commandService: { executeC
 
 	function renderTaskRow(parent: HTMLElement, task: ITask, groupId?: string) {
 		const row = append(parent, $('div'));
-		row.style.cssText = `display:flex;align-items:center;gap:8px;padding:6px 20px 6px 42px;cursor:pointer;transition:background 0.1s;border-radius:${T.radiusSm};margin:0 4px;`;
+		row.style.cssText = `display:flex;align-items:center;gap:8px;padding:6px 20px 6px 24px;cursor:pointer;transition:background 0.1s;border-radius:${T.radiusSm};margin:0 4px;`;
 		row.dataset.taskId = task.id;
 		row.draggable = true;
 		taskRows.push({ el: row, task, groupId: groupId || '' });
+
+		// Bulk select checkbox
+		const checkbox = append(row, $('span'));
+		checkbox.style.cssText = `font-size:13px;cursor:pointer;flex-shrink:0;color:${T.textFaint};width:16px;text-align:center;`;
+		checkbox.textContent = selectedTaskIds.has(task.id) ? '\u2611' : '\u2610';
+		checkbox.addEventListener('click', (e) => {
+			e.stopPropagation();
+			if (selectedTaskIds.has(task.id)) { selectedTaskIds.delete(task.id); checkbox.textContent = '\u2610'; checkbox.style.color = T.textFaint; }
+			else { selectedTaskIds.add(task.id); checkbox.textContent = '\u2611'; checkbox.style.color = T.accent; }
+			updateBulkBar();
+		});
 
 		row.addEventListener('mouseenter', () => { if (!dragTaskId) { row.style.background = T.surfaceHover; } });
 		row.addEventListener('mouseleave', () => { row.style.background = ''; });
@@ -818,26 +829,102 @@ export function renderBoardContent(root: HTMLElement, commandService: { executeC
 		}
 	}
 
-	// == Sprint bar ===========================================================
-	const sprint = append(boardContainer, $('div'));
-	sprint.style.cssText = `display:flex;align-items:center;gap:10px;padding:14px 20px;border-bottom:1px solid ${T.border};`;
+	// == Workflow mode + View switcher ========================================
+	let workflowMode: 'sprint' | 'continuous' = 'sprint';
+	let activeEngView: 'board' | 'planning' | 'workload' = 'board';
 
-	const sprintIndicator = append(sprint, $('span'));
-	sprintIndicator.style.cssText = `width:8px;height:8px;border-radius:50%;background:${T.accent};flex-shrink:0;`;
+	const modeRow = append(boardContainer, $('div'));
+	modeRow.style.cssText = `display:flex;align-items:center;gap:8px;padding:8px 20px;border-bottom:1px solid ${T.border};`;
+	const modeLabel = append(modeRow, $('span'));
+	modeLabel.style.cssText = `font-size:11px;color:${T.textFaint};`;
+	modeLabel.textContent = 'Workflow';
+	const modeBtns: HTMLElement[] = [];
+	for (const m of ['sprint', 'continuous'] as const) {
+		const btn = append(modeRow, $('span'));
+		modeBtns.push(btn);
+		const isActive = workflowMode === m;
+		btn.style.cssText = `font-size:11px;padding:3px 10px;border-radius:${T.radiusPill};cursor:pointer;font-weight:500;transition:all 0.12s;background:${isActive ? T.accent : T.accent + '15'};color:${isActive ? '#fff' : T.accent};`;
+		btn.textContent = m === 'sprint' ? 'Sprint' : 'Continuous';
+		btn.addEventListener('click', () => {
+			if (workflowMode === m) { return; }
+			workflowMode = m;
+			if (m === 'continuous' && activeEngView === 'planning') { activeEngView = 'board'; }
+			rebuildEngView();
+		});
+	}
 
-	const sprintInfo = append(sprint, $('div'));
-	sprintInfo.style.cssText = 'display:flex;flex-direction:column;gap:1px;flex:1;';
+	// Separator
+	const modeSep = append(modeRow, $('span'));
+	modeSep.style.cssText = `width:1px;height:16px;background:${T.border};margin:0 4px;`;
 
-	const sprintName = append(sprintInfo, $('span'));
-	sprintName.style.cssText = `font-size:13px;font-weight:600;color:${T.text};letter-spacing:-0.01em;`;
-	sprintName.textContent = 'Sprint 2 \u00B7 Core UI';
+	const viewBtns: HTMLElement[] = [];
+	function renderViewSwitcher() {
+		for (const b of viewBtns) { b.remove(); }
+		viewBtns.length = 0;
+		const views: Array<'board' | 'planning' | 'workload'> = workflowMode === 'sprint' ? ['board', 'planning', 'workload'] : ['board', 'workload'];
+		const viewLabels: Record<string, string> = { board: 'Board', planning: 'Sprint Planning', workload: 'Workload' };
+		for (const v of views) {
+			const btn = append(modeRow, $('span'));
+			viewBtns.push(btn);
+			const isActive = activeEngView === v;
+			btn.style.cssText = `font-size:11px;padding:3px 10px;cursor:pointer;font-weight:500;transition:all 0.12s;border-bottom:2px solid ${isActive ? T.accent : 'transparent'};color:${isActive ? T.text : T.textFaint};`;
+			btn.textContent = viewLabels[v];
+			btn.addEventListener('click', () => {
+				if (activeEngView === v) { return; }
+				activeEngView = v;
+				rebuildEngView();
+			});
+		}
+	}
+	renderViewSwitcher();
 
-	const sprintDates = append(sprintInfo, $('span'));
-	sprintDates.style.cssText = `font-size:11px;color:${T.textMuted};`;
-	sprintDates.textContent = 'April 7 \u2013 18, 2026';
+	// Content containers for each view
+	const boardViewContainer = append(boardContainer, $('div'));
+	const planningViewContainer = append(boardContainer, $('div'));
+	planningViewContainer.style.display = 'none';
+	const workloadViewContainer = append(boardContainer, $('div'));
+	workloadViewContainer.style.display = 'none';
+
+	function rebuildEngView() {
+		// Update mode buttons
+		for (let i = 0; i < modeBtns.length; i++) {
+			const isActive = ['sprint', 'continuous'][i] === workflowMode;
+			modeBtns[i].style.background = isActive ? T.accent : T.accent + '15';
+			modeBtns[i].style.color = isActive ? '#fff' : T.accent;
+		}
+		renderViewSwitcher();
+		// Show/hide containers
+		boardViewContainer.style.display = activeEngView === 'board' ? '' : 'none';
+		planningViewContainer.style.display = activeEngView === 'planning' ? '' : 'none';
+		workloadViewContainer.style.display = activeEngView === 'workload' ? '' : 'none';
+		// Render planning/workload if switching to them
+		if (activeEngView === 'planning') { renderSprintPlanning(); }
+		if (activeEngView === 'workload') { renderWorkload(); }
+	}
+
+	// == Sprint bar (inside boardViewContainer) ===============================
+	const sprintBar = append(boardViewContainer, $('div'));
+
+	function renderSprintBar() {
+		sprintBar.textContent = '';
+		if (workflowMode !== 'sprint') { sprintBar.style.display = 'none'; return; }
+		sprintBar.style.display = '';
+		sprintBar.style.cssText = `display:flex;align-items:center;gap:10px;padding:14px 20px;border-bottom:1px solid ${T.border};`;
+		const sprintIndicator = append(sprintBar, $('span'));
+		sprintIndicator.style.cssText = `width:8px;height:8px;border-radius:50%;background:${T.accent};flex-shrink:0;`;
+		const sprintInfo = append(sprintBar, $('div'));
+		sprintInfo.style.cssText = 'display:flex;flex-direction:column;gap:1px;flex:1;';
+		const sName = append(sprintInfo, $('span'));
+		sName.style.cssText = `font-size:13px;font-weight:600;color:${T.text};letter-spacing:-0.01em;`;
+		sName.textContent = 'Sprint 2 \u00B7 Core UI';
+		const sDates = append(sprintInfo, $('span'));
+		sDates.style.cssText = `font-size:11px;color:${T.textMuted};`;
+		sDates.textContent = 'April 7 \u2013 18, 2026';
+	}
+	renderSprintBar();
 
 	// == Search ===============================================================
-	const searchWrap = append(boardContainer, $('div'));
+	const searchWrap = append(boardViewContainer, $('div'));
 	searchWrap.style.cssText = `padding:10px 20px;border-bottom:1px solid ${T.border};`;
 
 	const searchInput = append(searchWrap, $('input'));
@@ -851,7 +938,7 @@ export function renderBoardContent(root: HTMLElement, commandService: { executeC
 
 	// == Group by =============================================================
 	let activeGroupBy = 'status';
-	const groupByRow = append(boardContainer, $('div'));
+	const groupByRow = append(boardViewContainer, $('div'));
 	groupByRow.style.cssText = `display:flex;align-items:center;gap:8px;padding:8px 20px;border-bottom:1px solid ${T.border};`;
 	const groupByLabel = append(groupByRow, $('span'));
 	groupByLabel.style.cssText = `font-size:11px;color:${T.textFaint};`;
@@ -878,7 +965,7 @@ export function renderBoardContent(root: HTMLElement, commandService: { executeC
 	let activeSortField = '';
 	let sortAscending = true;
 
-	const filterRow = append(boardContainer, $('div'));
+	const filterRow = append(boardViewContainer, $('div'));
 	filterRow.style.cssText = `display:flex;gap:6px;padding:8px 20px;border-bottom:1px solid ${T.border};flex-wrap:wrap;align-items:center;`;
 
 	function rebuildFilterRow() {
@@ -942,7 +1029,7 @@ export function renderBoardContent(root: HTMLElement, commandService: { executeC
 	rebuildFilterRow();
 
 	// == Dynamic board content (rebuilt on group-by change) ====================
-	const dynamicContainer = append(boardContainer, $('div'));
+	const dynamicContainer = append(boardViewContainer, $('div'));
 
 	function rebuildBoard() {
 		dynamicContainer.textContent = '';
@@ -1083,7 +1170,7 @@ export function renderBoardContent(root: HTMLElement, commandService: { executeC
 	rebuildBoard();
 
 	// == Sprint progress ======================================================
-	const progressSection = append(boardContainer, $('div'));
+	const progressSection = append(boardViewContainer, $('div'));
 	progressSection.style.cssText = `padding:16px 20px;border-top:1px solid ${T.border};`;
 
 	const progressLabel = append(progressSection, $('div'));
@@ -1105,7 +1192,7 @@ export function renderBoardContent(root: HTMLElement, commandService: { executeC
 	barText.textContent = `${doneTasks} of ${allTaskCount} complete (${pct}%)`;
 
 	// == Action buttons =======================================================
-	const actions = append(boardContainer, $('div'));
+	const actions = append(boardViewContainer, $('div'));
 	actions.style.cssText = `display:flex;gap:8px;padding:8px 20px 20px;`;
 
 	const makeBtn = (btnLabel: string, command: string, isPrimary?: boolean) => {
@@ -1129,4 +1216,281 @@ export function renderBoardContent(root: HTMLElement, commandService: { executeC
 	makeBtn('Board', 'prendgame.openBoard', true);
 	makeBtn('Sprint', 'prendgame.openSprintDashboard');
 	makeBtn('MCP Log', 'prendgame.openMcpLog');
+
+	// == Sprint Planning View =================================================
+	function renderSprintPlanning() {
+		planningViewContainer.textContent = '';
+		const allTasks: ITask[] = [];
+		for (const g of groups) { allTasks.push(...g.tasks); }
+
+		// Split into sprint tasks (in_progress, todo, in_review) vs backlog
+		const sprintTasks = allTasks.filter(t => { const g = findTaskGroup(t.id); return g === 'in_progress' || g === 'todo' || g === 'in_review' || g === 'done'; });
+		const backlogTasks = allTasks.filter(t => findTaskGroup(t.id) === 'backlog');
+
+		// Sprint header
+		const sprintHeader = append(planningViewContainer, $('div'));
+		sprintHeader.style.cssText = `padding:14px 20px;border-bottom:1px solid ${T.border};`;
+		const shName = append(sprintHeader, $('div'));
+		shName.style.cssText = `font-size:14px;font-weight:600;color:${T.text};margin-bottom:4px;`;
+		shName.textContent = 'Sprint 2 \u00B7 Core UI';
+		const shMeta = append(sprintHeader, $('div'));
+		shMeta.style.cssText = `font-size:11px;color:${T.textMuted};display:flex;gap:12px;`;
+		shMeta.appendChild(document.createTextNode('April 7 \u2013 18, 2026'));
+		const shCount = append(shMeta, $('span'));
+		shCount.textContent = `\u00B7 ${sprintTasks.length} tasks`;
+		const shDone = sprintTasks.filter(t => findTaskGroup(t.id) === 'done').length;
+		const shPct = sprintTasks.length > 0 ? Math.round((shDone / sprintTasks.length) * 100) : 0;
+		const shProgress = append(shMeta, $('span'));
+		shProgress.textContent = `\u00B7 ${shPct}% complete`;
+
+		// Sprint actions
+		const sprintActions = append(planningViewContainer, $('div'));
+		sprintActions.style.cssText = `display:flex;gap:8px;padding:10px 20px;border-bottom:1px solid ${T.border};`;
+		const startBtn = append(sprintActions, $('span'));
+		startBtn.style.cssText = `font-size:11px;padding:5px 14px;border-radius:${T.radiusSm};background:${T.accent};color:#fff;cursor:pointer;font-weight:500;`;
+		startBtn.textContent = 'End Sprint';
+		startBtn.addEventListener('click', () => { startBtn.textContent = 'Sprint ended'; startBtn.style.background = '#22c55e'; });
+		const goalBtn = append(sprintActions, $('span'));
+		goalBtn.style.cssText = `font-size:11px;padding:5px 14px;border-radius:${T.radiusSm};border:1px solid ${T.border};color:${T.textMuted};cursor:pointer;`;
+		goalBtn.textContent = 'Edit Goal';
+
+		// Current Sprint section
+		const sprintSection = append(planningViewContainer, $('div'));
+		sprintSection.style.cssText = `padding:10px 0;`;
+		const sprintLabel = append(sprintSection, $('div'));
+		sprintLabel.style.cssText = `font-size:11px;font-weight:600;color:${T.textFaint};text-transform:uppercase;letter-spacing:0.06em;padding:6px 20px;`;
+		sprintLabel.textContent = `Current Sprint (${sprintTasks.length})`;
+		for (const task of sprintTasks) {
+			renderPlanningRow(sprintSection, task, false);
+		}
+
+		// Backlog section
+		const backlogSection = append(planningViewContainer, $('div'));
+		backlogSection.style.cssText = `padding:10px 0;border-top:2px solid ${T.border};`;
+		const backlogLabel = append(backlogSection, $('div'));
+		backlogLabel.style.cssText = `font-size:11px;font-weight:600;color:${T.textFaint};text-transform:uppercase;letter-spacing:0.06em;padding:6px 20px;`;
+		backlogLabel.textContent = `Backlog (${backlogTasks.length})`;
+		for (const task of backlogTasks) {
+			renderPlanningRow(backlogSection, task, true);
+		}
+	}
+
+	function renderPlanningRow(container: HTMLElement, task: ITask, isBacklog: boolean) {
+		const row = append(container, $('div'));
+		row.style.cssText = `display:flex;align-items:center;gap:8px;padding:6px 20px;cursor:pointer;transition:background 0.1s;`;
+		row.addEventListener('mouseenter', () => { row.style.background = T.surfaceHover; });
+		row.addEventListener('mouseleave', () => { row.style.background = ''; });
+		row.addEventListener('click', () => { showDetail(task.id); });
+
+		const pBar = append(row, $('span'));
+		const pc = PRIORITY_COLORS[task.priority] || '#52525b';
+		pBar.style.cssText = `width:3px;height:16px;border-radius:2px;background:${pc};flex-shrink:0;`;
+
+		const tid = append(row, $('span'));
+		tid.style.cssText = `font-size:11px;color:${T.textFaint};font-family:var(--monaco-monospace-font);white-space:nowrap;min-width:42px;`;
+		tid.textContent = task.id;
+
+		const title = append(row, $('span'));
+		title.style.cssText = `font-size:13px;color:${T.text};flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;`;
+		title.textContent = task.title;
+
+		const groupId = findTaskGroup(task.id);
+		const sc = STATUS_COLORS[groupId] || '#666';
+		const statusPill = append(row, $('span'));
+		statusPill.style.cssText = `font-size:10px;padding:2px 6px;border-radius:${T.radiusPill};background:${sc}20;color:${sc};font-weight:500;`;
+		statusPill.textContent = TASK_STATUS_LABELS[groupId] || groupId;
+
+		const av = append(row, $('span'));
+		av.style.cssText = `display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;font-size:7px;font-weight:600;color:#fff;background:${task.color};flex-shrink:0;`;
+		av.textContent = task.initials;
+
+		// Move to/from sprint button
+		const moveBtn = append(row, $('span'));
+		moveBtn.style.cssText = `font-size:10px;padding:2px 8px;border-radius:${T.radiusSm};border:1px solid ${T.border};color:${T.textFaint};cursor:pointer;flex-shrink:0;transition:all 0.12s;`;
+		moveBtn.textContent = isBacklog ? '\u2191 Sprint' : '\u2193 Backlog';
+		moveBtn.addEventListener('mouseenter', () => { moveBtn.style.color = T.text; moveBtn.style.borderColor = T.accent; });
+		moveBtn.addEventListener('mouseleave', () => { moveBtn.style.color = T.textFaint; moveBtn.style.borderColor = T.border; });
+		moveBtn.addEventListener('click', (e) => {
+			e.stopPropagation();
+			// Move task between backlog and todo
+			const targetGroup = isBacklog ? 'todo' : 'backlog';
+			moveTask(task.id, targetGroup);
+			renderSprintPlanning();
+		});
+	}
+
+	// == Workload View ========================================================
+	function renderWorkload() {
+		workloadViewContainer.textContent = '';
+
+		const allTasks: ITask[] = [];
+		for (const g of groups) { allTasks.push(...g.tasks); }
+
+		const wlTitle = append(workloadViewContainer, $('div'));
+		wlTitle.style.cssText = `font-size:11px;font-weight:600;color:${T.textFaint};text-transform:uppercase;letter-spacing:0.06em;padding:14px 20px 8px;`;
+		wlTitle.textContent = 'Team Workload';
+
+		for (const member of members) {
+			const memberTasks = allTasks.filter(t => t.initials === member.initials);
+			const doneTasks = memberTasks.filter(t => findTaskGroup(t.id) === 'done').length;
+			const isOverloaded = memberTasks.length > 5;
+			const isEmpty = memberTasks.length === 0;
+
+			const row = append(workloadViewContainer, $('div'));
+			row.style.cssText = `padding:10px 20px;border-bottom:1px solid ${T.borderSubtle};${isOverloaded ? 'background:#f59e0b08;' : ''}`;
+
+			// Member header
+			const headerRow = append(row, $('div'));
+			headerRow.style.cssText = `display:flex;align-items:center;gap:8px;cursor:pointer;`;
+
+			const av = append(headerRow, $('span'));
+			av.style.cssText = `display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;font-size:9px;font-weight:600;color:#fff;background:${member.color};flex-shrink:0;`;
+			av.textContent = member.initials;
+
+			const nameWrap = append(headerRow, $('div'));
+			nameWrap.style.cssText = 'flex:1;';
+			const name = append(nameWrap, $('div'));
+			name.style.cssText = `font-size:13px;font-weight:500;color:${isEmpty ? T.textFaint : T.text};`;
+			name.textContent = member.name;
+			const role = append(nameWrap, $('div'));
+			role.style.cssText = `font-size:10px;color:${T.textFaint};`;
+			role.textContent = member.role;
+
+			// Status breakdown pills
+			const pillsWrap = append(headerRow, $('div'));
+			pillsWrap.style.cssText = 'display:flex;gap:4px;';
+			const statusCounts: Record<string, number> = {};
+			for (const t of memberTasks) { const g = findTaskGroup(t.id); statusCounts[g] = (statusCounts[g] || 0) + 1; }
+			for (const [sid, count] of Object.entries(statusCounts)) {
+				const pill = append(pillsWrap, $('span'));
+				const sc = STATUS_COLORS[sid] || '#52525b';
+				pill.style.cssText = `font-size:9px;padding:1px 6px;border-radius:${T.radiusPill};background:${sc}20;color:${sc};font-weight:500;`;
+				pill.textContent = `${count}`;
+			}
+
+			// Count + progress
+			const countEl = append(headerRow, $('span'));
+			countEl.style.cssText = `font-size:11px;color:${isOverloaded ? '#f59e0b' : isEmpty ? T.textFaint : T.textMuted};font-weight:${isOverloaded ? '600' : '400'};white-space:nowrap;`;
+			countEl.textContent = `${memberTasks.length} tasks`;
+
+			// Progress bar
+			if (memberTasks.length > 0) {
+				const barBg = append(row, $('div'));
+				barBg.style.cssText = `height:3px;border-radius:2px;background:${T.border};overflow:hidden;margin-top:6px;`;
+				const pct = Math.round((doneTasks / memberTasks.length) * 100);
+				const barFill = append(barBg, $('div'));
+				barFill.style.cssText = `height:100%;border-radius:2px;background:#22c55e;width:${pct}%;`;
+			}
+
+			// Expandable task list
+			const taskList = append(row, $('div'));
+			taskList.style.cssText = 'display:none;padding-top:6px;';
+
+			headerRow.addEventListener('click', () => {
+				const hidden = taskList.style.display === 'none';
+				taskList.style.display = hidden ? '' : 'none';
+			});
+
+			for (const t of memberTasks) {
+				const tRow = append(taskList, $('div'));
+				tRow.style.cssText = `display:flex;align-items:center;gap:8px;padding:4px 0 4px 32px;cursor:pointer;transition:background 0.1s;border-radius:${T.radiusSm};`;
+				tRow.addEventListener('mouseenter', () => { tRow.style.background = T.surfaceHover; });
+				tRow.addEventListener('mouseleave', () => { tRow.style.background = ''; });
+				tRow.addEventListener('click', (e) => { e.stopPropagation(); showDetail(t.id); });
+
+				const tBar = append(tRow, $('span'));
+				const tpc = PRIORITY_COLORS[t.priority] || '#52525b';
+				tBar.style.cssText = `width:3px;height:14px;border-radius:1px;background:${tpc};flex-shrink:0;`;
+				const tId = append(tRow, $('span'));
+				tId.style.cssText = `font-size:10px;color:${T.textFaint};font-family:var(--monaco-monospace-font);`;
+				tId.textContent = t.id;
+				const tTitle = append(tRow, $('span'));
+				tTitle.style.cssText = `font-size:12px;color:${T.text};flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;`;
+				tTitle.textContent = t.title;
+				const tGroupId = findTaskGroup(t.id);
+				const tsc = STATUS_COLORS[tGroupId] || '#666';
+				const tStatus = append(tRow, $('span'));
+				tStatus.style.cssText = `font-size:9px;padding:1px 5px;border-radius:${T.radiusPill};background:${tsc}20;color:${tsc};`;
+				tStatus.textContent = TASK_STATUS_LABELS[tGroupId] || tGroupId;
+			}
+		}
+	}
+
+	// == Bulk Actions =========================================================
+	const selectedTaskIds = new Set<string>();
+	let bulkBar: HTMLElement | null = null;
+
+	function updateBulkBar() {
+		if (selectedTaskIds.size === 0) {
+			if (bulkBar) { bulkBar.remove(); bulkBar = null; }
+			return;
+		}
+		if (!bulkBar) {
+			bulkBar = append(boardViewContainer, $('div'));
+			// Insert at top of boardViewContainer
+			boardViewContainer.insertBefore(bulkBar, boardViewContainer.firstChild);
+		}
+		bulkBar.textContent = '';
+		bulkBar.style.cssText = `display:flex;align-items:center;gap:8px;padding:8px 20px;background:${T.accent}15;border-bottom:1px solid ${T.accent}40;`;
+
+		const countLabel = append(bulkBar, $('span'));
+		countLabel.style.cssText = `font-size:12px;font-weight:600;color:${T.accent};`;
+		countLabel.textContent = `${selectedTaskIds.size} selected`;
+
+		// Status change
+		const statusSelect = append(bulkBar, $('select'));
+		statusSelect.style.cssText = `font-size:11px;padding:3px 6px;border-radius:${T.radiusSm};background:${T.surface};border:1px solid ${T.border};color:${T.textMuted};cursor:pointer;outline:none;`;
+		const statusDef = append(statusSelect, $('option'));
+		statusDef.textContent = 'Set status...';
+		(statusDef as HTMLOptionElement).value = '';
+		for (const s of TASK_STATUSES) {
+			const opt = append(statusSelect, $('option'));
+			opt.textContent = TASK_STATUS_LABELS[s] || s;
+			(opt as HTMLOptionElement).value = s;
+		}
+		statusSelect.addEventListener('change', () => {
+			const newStatus = (statusSelect as HTMLSelectElement).value;
+			if (!newStatus) { return; }
+			for (const id of selectedTaskIds) { moveTask(id, newStatus); }
+			selectedTaskIds.clear();
+			updateBulkBar();
+			rebuildBoard();
+		});
+
+		// Assignee change
+		const assigneeSelect = append(bulkBar, $('select'));
+		assigneeSelect.style.cssText = `font-size:11px;padding:3px 6px;border-radius:${T.radiusSm};background:${T.surface};border:1px solid ${T.border};color:${T.textMuted};cursor:pointer;outline:none;`;
+		const assigneeDef = append(assigneeSelect, $('option'));
+		assigneeDef.textContent = 'Set assignee...';
+		(assigneeDef as HTMLOptionElement).value = '';
+		for (const m of members) {
+			const opt = append(assigneeSelect, $('option'));
+			opt.textContent = m.name;
+			(opt as HTMLOptionElement).value = m.initials + '|' + m.color;
+		}
+		assigneeSelect.addEventListener('change', () => {
+			const val = (assigneeSelect as HTMLSelectElement).value;
+			if (!val) { return; }
+			const [initials, color] = val.split('|');
+			for (const id of selectedTaskIds) {
+				const task = findTask(id);
+				if (task) { task.initials = initials; task.color = color; }
+			}
+			selectedTaskIds.clear();
+			updateBulkBar();
+			rebuildBoard();
+		});
+
+		// Cancel
+		const cancelBtn = append(bulkBar, $('span'));
+		cancelBtn.style.cssText = `font-size:11px;padding:3px 10px;border-radius:${T.radiusSm};cursor:pointer;color:${T.textFaint};margin-left:auto;transition:color 0.12s;`;
+		cancelBtn.textContent = 'Cancel';
+		cancelBtn.addEventListener('mouseenter', () => { cancelBtn.style.color = T.text; });
+		cancelBtn.addEventListener('mouseleave', () => { cancelBtn.style.color = T.textFaint; });
+		cancelBtn.addEventListener('click', () => {
+			selectedTaskIds.clear();
+			updateBulkBar();
+			rebuildBoard();
+		});
+	}
 }
