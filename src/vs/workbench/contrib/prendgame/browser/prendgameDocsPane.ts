@@ -5,7 +5,7 @@
 
 import { $, append, getWindow } from '../../../../base/browser/dom.js';
 import { T } from './prendgameTheme.js';
-import { getDocs, getMembers, getLinkedTasks, addLink, isDocLocked, findTask, findTaskGroup, getGroups, getDueDateStyle, updateDoc, PRIORITY_COLORS, PRIORITY_LABELS, TASK_STATUS_COLORS, TASK_STATUS_LABELS, DOC_TYPE_COLORS as TYPE_COLORS, DOC_TYPE_LABELS as TYPE_LABELS, DOC_STATUSES as STATUSES, DOC_STATUS_LABELS as STATUS_LABELS, DOC_STATUS_COLORS as STATUS_COLORS, IDoc } from './prendgameData.js';
+import { getDocs, getMembers, getLinkedTasks, addLink, isDocLocked, findTask, findTaskGroup, getGroups, getDueDateStyle, updateDoc, onDataChanged, PRIORITY_COLORS, PRIORITY_LABELS, TASK_STATUS_COLORS, TASK_STATUS_LABELS, DOC_TYPE_COLORS as TYPE_COLORS, DOC_TYPE_LABELS as TYPE_LABELS, DOC_STATUSES as STATUSES, DOC_STATUS_LABELS as STATUS_LABELS, DOC_STATUS_COLORS as STATUS_COLORS, IDoc } from './prendgameData.js';
 import { groupItemsBy, renderCollapsibleGroup } from './prendgameViewUtils.js';
 
 export function renderMarkdownToDOM(parent: HTMLElement, text: string): void {
@@ -70,6 +70,7 @@ export function renderDocsContent(root: HTMLElement, commandService: { executeCo
 		activeDocId = null;
 		listContainer.style.display = '';
 		detailContainer.style.display = 'none';
+		rebuildList();
 	}
 
 	function showDetail(docId: string) {
@@ -1195,4 +1196,9 @@ export function renderDocsContent(root: HTMLElement, commandService: { executeCo
 
 	// Initial render
 	renderList();
+
+	// Subscribe to data changes for reactive updates
+	onDataChanged(() => {
+		if (!activeDocId) { rebuildList(); }
+	});
 }

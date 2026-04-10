@@ -28,6 +28,7 @@ export function renderBoardContent(root: HTMLElement, commandService: { executeC
 		activeTaskId = null;
 		boardContainer.style.display = '';
 		detailContainer.style.display = 'none';
+		rebuildBoard();
 	}
 
 	function showDetail(taskId: string) {
@@ -1223,7 +1224,9 @@ export function renderBoardContent(root: HTMLElement, commandService: { executeC
 	rebuildBoard();
 
 	// Subscribe to data changes for reactive updates
-	onDataChanged(() => { rebuildBoard(); });
+	onDataChanged(() => {
+		if (!activeTaskId) { rebuildBoard(); }
+	});
 
 	// == Sprint progress ======================================================
 	const progressSection = append(boardViewContainer, $('div'));
