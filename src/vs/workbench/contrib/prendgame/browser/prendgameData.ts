@@ -48,12 +48,12 @@ export const DOC_TYPE_COLORS: Record<string, string> = {
 export const DOC_TYPE_LABELS: Record<string, string> = {
 	prd: 'PRD', spec: 'Spec', user_story: 'Story', research: 'Research', meeting_notes: 'Notes', adr: 'ADR',
 };
-export const DOC_STATUSES = ['draft', 'in_review', 'approved', 'ready_for_dev', 'archived'];
+export const DOC_STATUSES = ['draft', 'in_review', 'approved', 'ready_for_dev', 'in_development', 'archived'];
 export const DOC_STATUS_LABELS: Record<string, string> = {
-	draft: 'Draft', in_review: 'In Review', approved: 'Approved', ready_for_dev: 'Ready for Dev', archived: 'Archived',
+	draft: 'Draft', in_review: 'In Review', approved: 'Approved', ready_for_dev: 'Ready for Dev', in_development: 'In Development', archived: 'Archived',
 };
 export const DOC_STATUS_COLORS: Record<string, string> = {
-	draft: '#71717a', in_review: '#a855f7', approved: '#22c55e', ready_for_dev: '#3b82f6', archived: '#3f3f46',
+	draft: '#71717a', in_review: '#a855f7', approved: '#22c55e', ready_for_dev: '#3b82f6', in_development: '#6366f1', archived: '#3f3f46',
 };
 
 // -- Utilities ----------------------------------------------------------------
@@ -112,20 +112,20 @@ const t = (id: string, title: string, priority: string, initials: string, color:
 const _groups: IGroup[] = [
 	{
 		id: 'in_progress', name: 'In Progress', collapsed: false, tasks: [
-			t('PRE-3', 'Build kanban board webview', 'critical', 'ML', '#10b981', ['frontend', 'core'], 'Implement the main kanban board as a VS Code webview panel.\n\n- 5 default columns (configurable)\n- Drag-and-drop between columns\n- Task card rendering with title, assignee avatar, priority badge\n- Filter bar (assignee, priority, label)', '2026-04-08', [
+			t('PRE-3', 'Build kanban board with status columns and drag-and-drop', 'critical', 'ML', '#10b981', ['frontend', 'core'], 'Implements PRD v1 Requirements 1-2:\n\n1. Board displays 5 default status columns\n2. Drag-and-drop moves tasks between status groups and updates status\n\nThe board appears in the right sidebar as a collapsible grouped list per the UX Description.', '2026-04-08', [
 				{ title: 'Render column headers with task counts', done: true },
 				{ title: 'Implement drag-and-drop between columns', done: true },
 				{ title: 'Build task card component', done: false, assignee: 'ML' },
 				{ title: 'Add filter bar with dropdowns', done: false, assignee: 'ML' },
 			]),
-			t('PRE-4', 'Implement task detail view', 'high', 'SR', '#f59e0b', ['frontend'], 'When a user clicks a task card, show a detail view with all fields inline-editable.\n\n- Title, status, priority, assignee\n- Description with markdown rendering\n- Comments thread\n- Linked documents and code snippets', '2026-04-11', [
+			t('PRE-4', 'Implement inline task detail with editable fields', 'high', 'SR', '#f59e0b', ['frontend'], 'Implements PRD v1 Requirements 5-6:\n\n5. Clicking a task card opens inline detail view with all fields editable\n6. Comments thread with inline add\n\nPer the UX Description, clicking a task opens a detail view with inline editing for all fields.', '2026-04-11', [
 				{ title: 'Metadata grid with inline editing', done: true },
 				{ title: 'Description with click-to-edit', done: true },
 				{ title: 'Comments section', done: true },
 				{ title: 'Linked code snippets', done: false, assignee: 'SR' },
 				{ title: 'Activity log', done: false },
 			]),
-			t('PRE-5', 'Create sidebar tree views', 'high', 'RB', '#ef4444', ['frontend'], 'Register tree view providers in the PRendgame activity bar.\n\n- My Tasks grouped by status\n- Documents grouped by type\n- Sprints with task counts', '2026-04-09'),
+			t('PRE-5', 'Task rows with priority bar, ID, title, assignee avatar', 'high', 'RB', '#ef4444', ['frontend'], 'Implements PRD v1 Requirement 3:\n\n3. Each task row shows: priority color bar, monospace ID, title, assignee avatar\n\nAlso registers tree view providers in the activity bar for My Tasks, Documents, and Sprints.', '2026-04-09'),
 		]
 	},
 	{
@@ -135,7 +135,7 @@ const _groups: IGroup[] = [
 				{ title: 'Inline block editing', done: false, assignee: 'ML' },
 				{ title: 'Template picker for new docs', done: false },
 			]),
-			t('PRE-7', 'Implement list view for tasks', 'medium', 'SR', '#f59e0b', ['frontend'], '', '2026-04-16'),
+			t('PRE-7', 'Filter bar for assignee, priority, and tags', 'medium', 'SR', '#f59e0b', ['frontend'], 'Implements PRD v1 Requirement 4:\n\n4. Filter bar supports filtering by assignee, priority, and tags', '2026-04-16'),
 			t('PRE-8', 'Implement timeline view', 'medium', 'ML', '#10b981', ['frontend'], '', '2026-04-18'),
 			t('PRE-15', 'Sprint dashboard view', 'medium', 'ML', '#10b981', ['dashboard'], '', '2026-04-18'),
 			t('PRE-16', 'QA pass on kanban interactions', 'high', 'AQ', '#ec4899', ['qa'], '', '2026-04-11'),
@@ -238,17 +238,39 @@ export function createTasksFromDoc(docId: string): ITask[] {
 	const doc = _docs.find(d => d.id === docId);
 	if (!doc) { return []; }
 	const nextId = _groups.reduce((max, g) => Math.max(max, ...g.tasks.map(t => parseInt(t.id.replace('PRE-', '')) || 0)), 0) + 1;
-	const newTasks: ITask[] = [
-		{ id: `PRE-${nextId}`, title: `Implement ${doc.title}`, priority: 'high', initials: 'ML', color: '#10b981', tags: ['from-doc'], description: `Auto-created from document: ${doc.title}`, dueDate: '', subtasks: [] },
-		{ id: `PRE-${nextId + 1}`, title: `Write tests for ${doc.title}`, priority: 'medium', initials: 'SR', color: '#f59e0b', tags: ['from-doc'], description: `Test coverage for: ${doc.title}`, dueDate: '', subtasks: [] },
-		{ id: `PRE-${nextId + 2}`, title: `QA review: ${doc.title}`, priority: 'medium', initials: 'AQ', color: '#ec4899', tags: ['qa', 'from-doc'], description: `QA pass for: ${doc.title}`, dueDate: '', subtasks: [] },
-	];
+
+	// Parse requirements from doc content
+	const reqLines: string[] = [];
+	let inReqs = false;
+	for (const line of doc.content.split('\n')) {
+		if (line.startsWith('## Requirements')) { inReqs = true; continue; }
+		if (line.startsWith('## ') && inReqs) { break; }
+		if (inReqs && /^\d+\.\s/.test(line)) { reqLines.push(line.replace(/^\d+\.\s*/, '')); }
+	}
+
+	let newTasks: ITask[];
+	if (reqLines.length > 0) {
+		// Create one task per requirement
+		newTasks = reqLines.map((req, i) => ({
+			id: `PRE-${nextId + i}`, title: req, priority: i === 0 ? 'high' : 'medium',
+			initials: ['ML', 'SR', 'JP', 'RB'][i % 4], color: ['#10b981', '#f59e0b', '#06b6d4', '#ef4444'][i % 4],
+			tags: ['from-doc'], description: `Requirement from ${doc.title}:\n${req}`, dueDate: '', subtasks: [],
+		}));
+	} else {
+		// Fallback: generic tasks
+		newTasks = [
+			{ id: `PRE-${nextId}`, title: `Implement ${doc.title}`, priority: 'high', initials: 'ML', color: '#10b981', tags: ['from-doc'], description: `From document: ${doc.title}`, dueDate: '', subtasks: [] },
+			{ id: `PRE-${nextId + 1}`, title: `Write tests for ${doc.title}`, priority: 'medium', initials: 'SR', color: '#f59e0b', tags: ['from-doc'], description: `Test coverage for: ${doc.title}`, dueDate: '', subtasks: [] },
+			{ id: `PRE-${nextId + 2}`, title: `QA review: ${doc.title}`, priority: 'medium', initials: 'AQ', color: '#ec4899', tags: ['qa', 'from-doc'], description: `QA pass for: ${doc.title}`, dueDate: '', subtasks: [] },
+		];
+	}
 	const todoGroup = _groups.find(g => g.id === 'todo');
 	if (todoGroup) { todoGroup.tasks.push(...newTasks); }
 	for (const task of newTasks) {
 		_links.push({ fromType: 'doc', fromId: docId, toType: 'task', toId: task.id });
 	}
 	doc.tasksTotal += newTasks.length;
+	doc.status = 'in_development';
 	_onDataChanged.fire();
 	return newTasks;
 }

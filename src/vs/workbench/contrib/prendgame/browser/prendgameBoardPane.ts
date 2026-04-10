@@ -5,7 +5,7 @@
 
 import { $, append, getWindow } from '../../../../base/browser/dom.js';
 import { T } from './prendgameTheme.js';
-import { getGroups, getMembers, getDocs, findTask, findTaskGroup, getDueDateStyle, getLinkedDocs, getLinkedTasks, addLink, getReadyForDevDocs, createTasksFromDoc, onTaskChanged, PRIORITY_COLORS, PRIORITY_LABELS, TASK_STATUS_COLORS as STATUS_COLORS, TASK_STATUS_LABELS, TASK_STATUSES, DOC_TYPE_COLORS, DOC_TYPE_LABELS, DOC_STATUS_COLORS, DOC_STATUS_LABELS, ITask, ISubtask, IDoc } from './prendgameData.js';
+import { getGroups, getMembers, getDocs, findTask, findTaskGroup, getDueDateStyle, getLinkedDocs, getLinkedTasks, addLink, getReadyForDevDocs, createTasksFromDoc, onTaskChanged, onDataChanged, PRIORITY_COLORS, PRIORITY_LABELS, TASK_STATUS_COLORS as STATUS_COLORS, TASK_STATUS_LABELS, TASK_STATUSES, DOC_TYPE_COLORS, DOC_TYPE_LABELS, DOC_STATUS_COLORS, DOC_STATUS_LABELS, ITask, ISubtask, IDoc } from './prendgameData.js';
 import { renderMarkdownToDOM } from './prendgameDocsPane.js';
 import { groupItemsBy, renderCollapsibleGroup, IViewGroup } from './prendgameViewUtils.js';
 
@@ -118,7 +118,7 @@ export function renderBoardContent(root: HTMLElement, commandService: { executeC
 				od.style.cssText = `width:6px;height:6px;border-radius:50%;background:${osc};flex-shrink:0;`;
 				const ol = append(opt, $('span'));
 				ol.textContent = taskStatusLabels[s] || s;
-				opt.addEventListener('click', (e) => { e.stopPropagation(); sc = osc; statusPill.style.background = `${sc}20`; statusPill.style.color = sc; statusPill.textContent = (taskStatusLabels[s] || s) + ' \u25BE'; dd.remove(); statusDropdown = null; });
+				opt.addEventListener('click', (e) => { e.stopPropagation(); moveTask(task.id, s); sc = osc; statusPill.style.background = `${sc}20`; statusPill.style.color = sc; statusPill.textContent = (taskStatusLabels[s] || s) + ' \u25BE'; dd.remove(); statusDropdown = null; });
 			}
 			const w = getWindow(statusWrap);
 			const closeFn = (e: Event) => { if (!statusWrap.contains(e.target as Node)) { dd.remove(); statusDropdown = null; w.document.removeEventListener('click', closeFn); } };
@@ -310,6 +310,12 @@ export function renderBoardContent(root: HTMLElement, commandService: { executeC
 		const linkedDocsTitle = append(linkedDocsSection, $('div'));
 		linkedDocsTitle.style.cssText = `font-size:11px;font-weight:600;color:${T.textFaint};text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;`;
 		linkedDocsTitle.textContent = `Linked Documents (${linkedDocs.length})`;
+
+		if (linkedDocs.length === 0) {
+			const emptyMsg = append(linkedDocsSection, $('div'));
+			emptyMsg.style.cssText = `font-size:11px;color:${T.textFaint};padding:6px 8px;font-style:italic;`;
+			emptyMsg.textContent = 'No linked documents. Link a PRD to connect requirements.';
+		}
 
 		for (const ld of linkedDocs) {
 			const ldRow = append(linkedDocsSection, $('div'));
@@ -778,7 +784,16 @@ export function renderBoardContent(root: HTMLElement, commandService: { executeC
 			tgtContainer.el.style.display = '';
 			if (tgtTwistie) { tgtTwistie.el.style.transform = 'rotate(90deg)'; }
 		}
-		if (tgtContainer) { renderTaskRow(tgtContainer.el, task, targetGroupId); }
+		if (tgtContainer) {
+			renderTaskRow(tgtContainer.el, task, targetGroupId);
+			// Highlight animation on the dropped task
+			const newRow = tgtContainer.el.lastElementChild as HTMLElement;
+			if (newRow) {
+				newRow.style.background = `${T.accent}25`;
+				newRow.style.transition = 'background 0.8s ease';
+				setTimeout(() => { newRow.style.background = ''; }, 800);
+			}
+		}
 	}
 
 	function renderTaskRow(parent: HTMLElement, task: ITask, groupId?: string) {
@@ -1206,6 +1221,9 @@ export function renderBoardContent(root: HTMLElement, commandService: { executeC
 
 	// Initial board render
 	rebuildBoard();
+
+	// Subscribe to data changes for reactive updates
+	onDataChanged(() => { rebuildBoard(); });
 
 	// == Sprint progress ======================================================
 	const progressSection = append(boardViewContainer, $('div'));

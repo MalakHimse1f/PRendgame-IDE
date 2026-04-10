@@ -242,10 +242,42 @@ export function renderDocsContent(root: HTMLElement, commandService: { executeCo
 		btn.textContent = '+ New Document';
 		btn.addEventListener('mouseenter', () => { btn.style.color = T.text; btn.style.borderColor = T.accent; btn.style.background = T.surfaceHover; });
 		btn.addEventListener('mouseleave', () => { btn.style.color = T.textMuted; btn.style.borderColor = T.border; btn.style.background = ''; });
+
+		const templates: Array<{ type: string; label: string; content: string }> = [
+			{ type: 'prd', label: 'PRD', content: '## User Stories\n\nAs a [persona], I want [action] so that [outcome].\n\n## UX Description\n\nDescribe how the feature looks and behaves from the user perspective.\n\n## Requirements\n\n1. First requirement\n2. Second requirement\n3. Third requirement\n\n## Acceptance Criteria\n\n- [ ] First criterion\n- [ ] Second criterion\n- [ ] Third criterion\n\n## Notes\n\nAdd context, links, thoughts, or questions here.\n\n## Attachments\n\n- Link to mockups or references' },
+			{ type: 'spec', label: 'Technical Spec', content: '## Approach\n\nDescribe the technical approach.\n\n## Architecture\n\nOutline the system architecture.\n\n## API Design\n\nDefine endpoints, params, responses.\n\n## Data Model\n\nDescribe the schema or data structures.\n\n## Migration Plan\n\nSteps to migrate from current state.' },
+			{ type: 'user_story', label: 'User Story', content: '## As a [persona]\n\nI want [action] so that [outcome].\n\n## Acceptance Criteria\n\n- [ ] Criterion 1\n- [ ] Criterion 2\n- [ ] Criterion 3\n\n## Edge Cases\n\n- What happens when...?' },
+			{ type: 'research', label: 'Research Notes', content: '## Summary\n\nBrief summary of the research.\n\n## Findings\n\n1. Finding one\n2. Finding two\n\n## Recommendations\n\n- Recommendation 1\n- Recommendation 2\n\n## Open Questions\n\n- Question 1?' },
+			{ type: 'meeting_notes', label: 'Meeting Notes', content: '## Attendees\n\n- Name 1\n- Name 2\n\n## Agenda\n\n1. Topic 1\n2. Topic 2\n\n## Discussion\n\nKey points discussed.\n\n## Action Items\n\n- [ ] Action 1 (Owner)\n- [ ] Action 2 (Owner)' },
+			{ type: 'adr', label: 'ADR', content: '## Context\n\nWhat is the issue that we are seeing that is motivating this decision?\n\n## Decision\n\nWhat is the change that we are proposing?\n\n## Consequences\n\nWhat becomes easier or more difficult because of this change?\n\n## Alternatives Considered\n\n1. Alternative 1\n2. Alternative 2' },
+		];
+
+		let templatePicker: HTMLElement | null = null;
 		btn.addEventListener('click', () => {
-			const id = `doc-new-${Date.now()}`;
-			docs.unshift({ id, title: 'Untitled Document', type: 'prd', status: 'draft', priority: 'medium', owner: 'Alex Chen', ownerInitials: 'AC', ownerColor: '#6366f1', tasksTotal: 0, tasksDone: 0, updatedAt: 'Just now', dueDate: '', content: '## User Stories\n\nAs a [persona], I want [action] so that [outcome].\n\n## UX Description\n\nDescribe how the feature looks and behaves from the user perspective.\n\n## Requirements\n\n1. First requirement\n2. Second requirement\n3. Third requirement\n\n## Acceptance Criteria\n\n- [ ] First criterion\n- [ ] Second criterion\n- [ ] Third criterion\n\n## Notes\n\nAdd context, links, thoughts, or questions here.\n\n## Attachments\n\n- Link to mockups or references' });
-			showDetail(id);
+			if (templatePicker) { templatePicker.remove(); templatePicker = null; return; }
+			templatePicker = append(wrap, $('div'));
+			templatePicker.style.cssText = `background:${T.surface};border:1px solid ${T.border};border-radius:${T.radius};padding:4px 0;margin-top:4px;box-shadow:0 4px 12px rgba(0,0,0,0.3);`;
+			for (const tmpl of templates) {
+				const opt = append(templatePicker, $('div'));
+				const tc = TYPE_COLORS[tmpl.type] || '#666';
+				opt.style.cssText = `display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;font-size:11px;color:${T.textMuted};transition:background 0.1s;`;
+				opt.addEventListener('mouseenter', () => { opt.style.background = T.surfaceHover; });
+				opt.addEventListener('mouseleave', () => { opt.style.background = ''; });
+				const badge = append(opt, $('span'));
+				badge.style.cssText = `font-size:9px;font-weight:600;padding:2px 6px;border-radius:3px;background:${tc}20;color:${tc};text-transform:uppercase;min-width:36px;text-align:center;`;
+				badge.textContent = TYPE_LABELS[tmpl.type] || tmpl.type;
+				const label = append(opt, $('span'));
+				label.textContent = tmpl.label;
+				opt.addEventListener('click', () => {
+					const id = `doc-new-${Date.now()}`;
+					docs.unshift({ id, title: `Untitled ${tmpl.label}`, type: tmpl.type, status: 'draft', priority: 'medium', owner: 'Alex Chen', ownerInitials: 'AC', ownerColor: '#6366f1', tasksTotal: 0, tasksDone: 0, updatedAt: 'Just now', dueDate: '', content: tmpl.content });
+					if (templatePicker) { templatePicker.remove(); templatePicker = null; }
+					showDetail(id);
+				});
+			}
+			const w = getWindow(wrap);
+			const closeFn = (e: Event) => { if (templatePicker && !wrap.contains(e.target as Node)) { templatePicker.remove(); templatePicker = null; w.document.removeEventListener('click', closeFn); } };
+			setTimeout(() => w.document.addEventListener('click', closeFn), 0);
 		});
 	}
 
@@ -502,6 +534,7 @@ export function renderDocsContent(root: HTMLElement, commandService: { executeCo
 
 		let statusDropdown: HTMLElement | null = null;
 		statusBtn.addEventListener('click', () => {
+			if (locked) { return; }
 			if (statusDropdown) { statusDropdown.remove(); statusDropdown = null; return; }
 			const dd = append(statusWrap, $('div'));
 			statusDropdown = dd;
@@ -609,6 +642,7 @@ export function renderDocsContent(root: HTMLElement, commandService: { executeCo
 		const allTypes = Object.keys(TYPE_LABELS);
 		let typeDD: HTMLElement | null = null;
 		typeVal.addEventListener('click', () => {
+			if (locked) { return; }
 			if (typeDD) { typeDD.remove(); typeDD = null; return; }
 			const dd = append(typeWrap, $('div'));
 			typeDD = dd;
@@ -656,6 +690,7 @@ export function renderDocsContent(root: HTMLElement, commandService: { executeCo
 		prioPill.textContent = (PRIORITY_LABELS[doc.priority] || doc.priority) + ' \u25BE';
 		let prioDD: HTMLElement | null = null;
 		prioPill.addEventListener('click', () => {
+			if (locked) { return; }
 			if (prioDD) { prioDD.remove(); prioDD = null; return; }
 			const dd = append(prioWrap, $('div'));
 			prioDD = dd;
@@ -728,6 +763,7 @@ export function renderDocsContent(root: HTMLElement, commandService: { executeCo
 		relVal.addEventListener('mouseenter', () => { relVal.style.background = T.surfaceHover; });
 		relVal.addEventListener('mouseleave', () => { relVal.style.background = ''; });
 		relVal.addEventListener('click', () => {
+			if (locked) { return; }
 			const input = document.createElement('input');
 			input.type = 'text';
 			input.value = relText;
@@ -754,6 +790,7 @@ export function renderDocsContent(root: HTMLElement, commandService: { executeCo
 		effPill.textContent = effSize + ' \u25BE';
 		let effDD: HTMLElement | null = null;
 		effPill.addEventListener('click', () => {
+			if (locked) { return; }
 			if (effDD) { effDD.remove(); effDD = null; return; }
 			const dd = append(effWrap, $('div'));
 			effDD = dd;
@@ -840,6 +877,7 @@ export function renderDocsContent(root: HTMLElement, commandService: { executeCo
 			// Click to edit inline
 			const lineIndex = i;
 			block.addEventListener('click', () => {
+				if (locked) { return; }
 				const isHeading = lines[lineIndex].startsWith('#');
 				const input = isHeading ? document.createElement('input') : document.createElement('textarea');
 				if (isHeading) {
@@ -880,6 +918,12 @@ export function renderDocsContent(root: HTMLElement, commandService: { executeCo
 		const ltTitle = append(ltSection, $('div'));
 		ltTitle.style.cssText = `font-size:11px;font-weight:600;color:${T.textFaint};text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;`;
 		ltTitle.textContent = `Linked Tasks (${linkedTasks.length})`;
+
+		if (linkedTasks.length === 0) {
+			const emptyMsg = append(ltSection, $('div'));
+			emptyMsg.style.cssText = `font-size:11px;color:${T.textFaint};padding:6px 8px;font-style:italic;`;
+			emptyMsg.textContent = 'No linked tasks. Tasks appear here when created from this document.';
+		}
 
 		for (const lt of linkedTasks) {
 			const ltRow = append(ltSection, $('div'));
